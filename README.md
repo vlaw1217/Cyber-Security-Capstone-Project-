@@ -43,6 +43,4 @@ Each role contributes to planning, implementation, evaluation, and reporting.
 
 ## Disclaimer
 - This project is developed strictly for academic purposes.
-- All datasets are publicly available
-
-Visualization and dashboarding
+- All datasets are publicly available Visualization and dashboarding
