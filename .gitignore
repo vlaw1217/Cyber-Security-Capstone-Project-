@@ -1,0 +1,21 @@
+# Data
+data/
+*.csv
+*.zip
+
+# Secrets
+kaggle.json
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+Thumbs.db
