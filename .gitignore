@@ -9,6 +9,7 @@ data*/
 # =====================
 # Secrets
 # =====================
+.kaggle/
 kaggle.json
 .env
 
