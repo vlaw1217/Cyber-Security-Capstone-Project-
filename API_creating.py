@@ -6,9 +6,9 @@ import pandas as pd
 from kaggle.api.kaggle_api_extended import KaggleApi
 
 DATASET = "naserabdullahalam/phishing-email-dataset"
-TMP_DIR = ".tmp_kaggle_download"   # temporary folder (not committed)
+TMP_DIR = ".tmp_kaggle_download"   # Temporary folder (not committed)
 
-# authenticate with Kaggle
+# Authenticate with Kaggle
 api = KaggleApi()
 api.authenticate()
 
@@ -20,7 +20,7 @@ os.makedirs(TMP_DIR, exist_ok=True)
 # 2) Download & unzip into temp
 api.dataset_download_files(DATASET, path=TMP_DIR, unzip=True)
 
-# 3) find the CSV(s) that came from this dataset
+# 3) Find the CSV(s) that came from this dataset
 csv_files = [f for f in glob.glob(os.path.join(TMP_DIR, "*.csv"))
              if "CEAS_08" in os.path.basename(f)]
 print("CSV files downloaded:", csv_files)
@@ -44,7 +44,7 @@ after = df.shape[0]
 
 print("\nDuplicates removed:", before - after)
 
-# fill missing values 
+# Fill missing values 
 df["subject"] = df["subject"].fillna("")
 df["receiver"] = df["receiver"].fillna("unknown")
 
@@ -82,13 +82,28 @@ print("\nText normalization completed.\n")
 print("\n--- BEFORE Label Conversion ---")
 print(df["label"].head(5))
 
-# convert label to integer
+# Convert label to integer
 df["label"] = df["label"].astype(int)
 
 print("\n--- AFTER Label Conversion ---")
 print(df["label"].head(5))
 
-# empty / whitespace-only
+# 10) Cleaning Step 5: Simple metadata features
+print("\n--- Creating Metadata Features ---")
+
+# subject length
+df["subject_length"] = df["subject"].apply(len)
+
+# body length
+df["body_length"] = df["body"].apply(len)
+
+# URL count (urls column already contains numeric values)
+df["url_count"] = df["urls"]
+
+print("\nMetadata feature preview:")
+print(df[["subject_length", "body_length", "url_count"]].head(5))
+
+# Empty / whitespace-only
 for col in ["subject", "body"]:
     if col in df.columns:
         empty = df[col].astype(str).str.strip().eq("").sum()
@@ -101,7 +116,7 @@ print("Shape:", df.shape)
 print("Columns:", df.columns.tolist())
 print(df.head(10))
 
-# 6) delete temp files to comply with 'no dataset file stored'
+# 6) Delete temp files to comply with 'no dataset file stored'
 shutil.rmtree(TMP_DIR)
 print("Temporary dataset files deleted.")
 
