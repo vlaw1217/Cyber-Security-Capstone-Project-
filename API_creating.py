@@ -1,6 +1,7 @@
 import os
 import glob 
 import shutil 
+import re
 import pandas as pd
 from kaggle.api.kaggle_api_extended import KaggleApi
 
@@ -11,12 +12,12 @@ TMP_DIR = ".tmp_kaggle_download"   # temporary folder (not committed)
 api = KaggleApi()
 api.authenticate()
 
-# 1) fresh temp directory every run
+# 1) Fresh temp directory every run
 if os.path.exists(TMP_DIR):
     shutil.rmtree(TMP_DIR)
 os.makedirs(TMP_DIR, exist_ok=True)
 
-# 2) download & unzip into temp
+# 2) Download & unzip into temp
 api.dataset_download_files(DATASET, path=TMP_DIR, unzip=True)
 
 # 3) find the CSV(s) that came from this dataset
@@ -27,7 +28,7 @@ print("CSV files downloaded:", csv_files)
 if not csv_files:
     raise FileNotFoundError("No CSV found after download/unzip. Check dataset contents or Kaggle access rules.")
 
-# 4) load into memory (DataFrame)
+# 4) Load into memory (DataFrame)
 dfs = [pd.read_csv(f) for f in csv_files]
 df = pd.concat(dfs, ignore_index=True)
 
@@ -36,21 +37,38 @@ print("\n--- Data Quality BEFORE Cleaning ---")
 print("Duplicate rows:", df.duplicated().sum())
 print("Null counts:\n", df.isna().sum())
 
-# --- Step: Remove duplicates ---
+# 5) Cleaning Step 1: Remove duplicates and Fill missing values
 before = df.shape[0]
 df = df.drop_duplicates()
 after = df.shape[0]
 
 print("\nDuplicates removed:", before - after)
 
-# 5) fill missing values
+# fill missing values 
 df["subject"] = df["subject"].fillna("")
 df["receiver"] = df["receiver"].fillna("unknown")
 
-# data quality check
+# Data quality check
 print("\n--- Data Quality AFTER Cleaning ---")
 print("Duplicate rows:", df.duplicated().sum())
 print("Null counts:\n", df.isna().sum())
+
+# 7) Cleaning Step 2: Normalize text
+def normalize_text(text):
+    text = text.lower()                 # convert to lowercase
+    text = re.sub(r'[^\w\s]', '', text) # remove punctuation
+    text = re.sub(r'\s+', ' ', text)    # remove extra spaces
+    return text
+
+# Apply normalization
+df['subject'] = df['subject'].apply(normalize_text)
+df['body'] = df['body'].apply(normalize_text)
+
+# Removes leading/trailing spaces that remain after regex cleaning
+df["subject"] = df["subject"].str.strip()
+df["body"] = df["body"].str.strip()
+
+print("\nText normalization completed.\n")
 
 # empty / whitespace-only
 for col in ["subject", "body"]:
