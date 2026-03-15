@@ -31,10 +31,26 @@ if not csv_files:
 dfs = [pd.read_csv(f) for f in csv_files]
 df = pd.concat(dfs, ignore_index=True)
 
-# data quality check
-print("\n--- Data Quality Checks ---")
-print("Null counts:\n", df.isna().sum())
+# --- Data quality BEFORE cleaning ---
+print("\n--- Data Quality BEFORE Cleaning ---")
 print("Duplicate rows:", df.duplicated().sum())
+print("Null counts:\n", df.isna().sum())
+
+# --- Step: Remove duplicates ---
+before = df.shape[0]
+df = df.drop_duplicates()
+after = df.shape[0]
+
+print("\nDuplicates removed:", before - after)
+
+# 5) fill missing values
+df["subject"] = df["subject"].fillna("")
+df["receiver"] = df["receiver"].fillna("unknown")
+
+# data quality check
+print("\n--- Data Quality AFTER Cleaning ---")
+print("Duplicate rows:", df.duplicated().sum())
+print("Null counts:\n", df.isna().sum())
 
 # empty / whitespace-only
 for col in ["subject", "body"]:
@@ -49,7 +65,7 @@ print("Shape:", df.shape)
 print("Columns:", df.columns.tolist())
 print(df.head(10))
 
-# 5) delete temp files to comply with 'no dataset file stored'
+# 6) delete temp files to comply with 'no dataset file stored'
 shutil.rmtree(TMP_DIR)
 print("Temporary dataset files deleted.")
 
