@@ -78,6 +78,16 @@ print("\n--- AFTER Combining ---")
 print(df[["email_text"]].head(3))
 print("\nText normalization completed.\n")
 
+# 9) Cleaning Step 4: Convert label to integer
+print("\n--- BEFORE Label Conversion ---")
+print(df["label"].head(5))
+
+# convert label to integer
+df["label"] = df["label"].astype(int)
+
+print("\n--- AFTER Label Conversion ---")
+print(df["label"].head(5))
+
 # empty / whitespace-only
 for col in ["subject", "body"]:
     if col in df.columns:
