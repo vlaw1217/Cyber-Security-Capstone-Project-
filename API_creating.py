@@ -68,6 +68,14 @@ df['body'] = df['body'].apply(normalize_text)
 df["subject"] = df["subject"].str.strip()
 df["body"] = df["body"].str.strip()
 
+# 8) Cleaning Step 3: Combine subject and body
+print("\n--- BEFORE Combining ---")
+print(df[["subject", "body"]].head(3))
+
+df["email_text"] = df["subject"] + " " + df["body"]
+
+print("\n--- AFTER Combining ---")
+print(df[["email_text"]].head(3))
 print("\nText normalization completed.\n")
 
 # empty / whitespace-only
