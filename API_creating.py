@@ -7,6 +7,7 @@ from kaggle.api.kaggle_api_extended import KaggleApi
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from scipy.sparse import hstack
+from scipy.sparse import csr_matrix
 
 DATASET = "naserabdullahalam/phishing-email-dataset"
 TMP_DIR = ".tmp_kaggle_download"   # Temporary folder (not committed)
@@ -166,6 +167,34 @@ print("TF-IDF Test shape:", X_test_tfidf.shape)
 
 print("\nTrain size:", X_train.shape)
 print("Test size:", X_test.shape, "\n")
+
+# 13) Extract Feature Step 5: Combine all features, TF-IDF, Metadata, Phishing Signals
+print("Combine All Features")
+
+# All non-TF-IDF features
+meta_features = [
+    'subject_length',
+    'body_length',
+    'url_count',
+    'phishing_keyword_count',
+    'uppercase_count',
+    'digit_count'
+]
+
+# Extract metadata + phishing features using correct indices
+X_train_meta = df.loc[X_train.index, meta_features]
+X_test_meta = df.loc[X_test.index, meta_features]
+
+# Convert to sparse matrix
+X_train_meta_sparse = csr_matrix(X_train_meta.values)
+X_test_meta_sparse = csr_matrix(X_test_meta.values)
+
+# Combine TF-IDF + all additional features
+X_train_final = hstack([X_train_tfidf, X_train_meta_sparse])
+X_test_final = hstack([X_test_tfidf, X_test_meta_sparse])
+
+print("Final Train shape:", X_train_final.shape)
+print("Final Test shape:", X_test_final.shape)
 
 # Empty / whitespace-only
 for col in ["subject", "body"]:
