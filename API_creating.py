@@ -6,6 +6,7 @@ import pandas as pd
 from kaggle.api.kaggle_api_extended import KaggleApi
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
+from scipy.sparse import hstack
 
 DATASET = "naserabdullahalam/phishing-email-dataset"
 TMP_DIR = ".tmp_kaggle_download"   # Temporary folder (not committed)
@@ -55,7 +56,7 @@ print("\n--- Data Quality AFTER Cleaning ---")
 print("Duplicate rows:", df.duplicated().sum())
 print("Null counts:\n", df.isna().sum())
 
-# 7) Cleaning Step 2: Normalize text
+# 6) Cleaning Step 2: Normalize text
 def normalize_text(text):
     text = text.lower()                 # convert to lowercase
     text = re.sub(r'[^\w\s]', '', text) # remove punctuation
@@ -70,7 +71,7 @@ df['body'] = df['body'].apply(normalize_text)
 df["subject"] = df["subject"].str.strip()
 df["body"] = df["body"].str.strip()
 
-# 8) Cleaning Step 3: Combine subject and body
+# 7) Cleaning Step 3: Combine subject and body
 print("\n--- BEFORE Combining ---")
 print(df[["subject", "body"]].head(3))
 
@@ -80,7 +81,7 @@ print("\n--- AFTER Combining ---")
 print(df[["email_text"]].head(3))
 print("\nText normalization completed.\n")
 
-# 9) Cleaning Step 4: Convert label to integer
+# 8) Cleaning Step 4: Convert label to integer
 print("\n--- BEFORE Label Conversion ---")
 print(df["label"].head(5))
 
@@ -90,7 +91,7 @@ df["label"] = df["label"].astype(int)
 print("\n--- AFTER Label Conversion ---")
 print(df["label"].head(5))
 
-# 10) Cleaning Step 5: Simple metadata features
+# 9) Extract Feature Step 1: Simple metadata features
 print("\n--- Creating Metadata Features ---")
 
 # subject length
@@ -105,7 +106,36 @@ df["url_count"] = df["urls"]
 print("\nMetadata feature preview:")
 print(df[["subject_length", "body_length", "url_count"]].head(5))
 
-# 11) Step 6: Train/Test Split 
+# 10) Extract Feature Step 2: Phishing-Specific Features
+print("\n Creating Phishing-Specific Features")
+
+# Define phishing keywords
+phishing_keywords = [
+    "urgent", "verify", "click", "login", "password",
+    "account", "bank", "security", "update", "confirm"
+]
+
+# Count phishing keywords
+df["phishing_keyword_count"] = df["email_text"].apply(
+    lambda x: sum(x.count(word) for word in phishing_keywords)
+)
+
+# Count ALL CAPS words (e.g., "URGENT", "FREE")
+df["uppercase_count"] = df["email_text"].apply(
+    lambda x: sum(1 for word in x.split() if word.isupper())
+)
+
+# Count number of digits (often in fake links or codes)
+df["digit_count"] = df["email_text"].str.count(r"\d")
+
+print("\nPhishing feature preview:")
+print(df[[
+    "phishing_keyword_count",
+    "uppercase_count",
+    "digit_count"
+]].head(5))
+
+# 11) Extract Feature Step 3: Train/Test Split 
 X = df['email_text']
 y = df['label']
 
@@ -116,7 +146,7 @@ X_train, X_test, y_train, y_test = train_test_split(
     stratify=y
 )
 
-# 12) Step 7: TF-IDF
+# 12) Extract Feature Step 4: TF-IDF
 print("\nTF-IDF Feature Extraction:")
 # Initialize TF-IDF
 tfidf = TfidfVectorizer(
