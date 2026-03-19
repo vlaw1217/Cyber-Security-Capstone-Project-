@@ -5,6 +5,7 @@ import re
 import pandas as pd
 from kaggle.api.kaggle_api_extended import KaggleApi
 from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
 
 DATASET = "naserabdullahalam/phishing-email-dataset"
 TMP_DIR = ".tmp_kaggle_download"   # Temporary folder (not committed)
@@ -114,6 +115,24 @@ X_train, X_test, y_train, y_test = train_test_split(
     random_state=42,
     stratify=y
 )
+
+# 12) Step 7: TF-IDF
+print("\nTF-IDF Feature Extraction:")
+# Initialize TF-IDF
+tfidf = TfidfVectorizer(
+    max_features=5000,      # limit vocabulary size
+    ngram_range=(1, 2),     # unigrams + bigrams
+    stop_words='english'    # remove common words
+)
+
+# Fit on training data ONLY (important!)
+X_train_tfidf = tfidf.fit_transform(X_train)
+
+# Transform test data (DO NOT fit again)
+X_test_tfidf = tfidf.transform(X_test)
+
+print("TF-IDF Train shape:", X_train_tfidf.shape)
+print("TF-IDF Test shape:", X_test_tfidf.shape)
 
 print("\nTrain size:", X_train.shape)
 print("Test size:", X_test.shape, "\n")
