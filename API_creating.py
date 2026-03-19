@@ -10,6 +10,7 @@ from scipy.sparse import hstack
 from scipy.sparse import csr_matrix
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
+from sklearn.metrics import classification_report, confusion_matrix
 
 DATASET = "naserabdullahalam/phishing-email-dataset"
 TMP_DIR = ".tmp_kaggle_download"   # Temporary folder (not committed)
@@ -213,6 +214,19 @@ y_pred = model.predict(X_test_final)
 
 # Evaluation
 print("Accuracy:", accuracy_score(y_test, y_pred), "\n")
+
+# 15) Full Evaluation
+print("\n-----Detailed Evaluation-----")
+
+# Classification Report
+print("\nClassification Report:")
+print(classification_report(y_test, y_pred))
+
+# Confusion Matrix
+cm = confusion_matrix(y_test, y_pred)
+
+print("\nConfusion Matrix:")
+print(cm,"\n")
 
 # Empty / whitespace-only
 for col in ["subject", "body"]:
