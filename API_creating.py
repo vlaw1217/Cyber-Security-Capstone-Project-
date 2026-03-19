@@ -8,6 +8,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 from scipy.sparse import hstack
 from scipy.sparse import csr_matrix
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
 
 DATASET = "naserabdullahalam/phishing-email-dataset"
 TMP_DIR = ".tmp_kaggle_download"   # Temporary folder (not committed)
@@ -195,6 +197,22 @@ X_test_final = hstack([X_test_tfidf, X_test_meta_sparse])
 
 print("Final Train shape:", X_train_final.shape)
 print("Final Test shape:", X_test_final.shape)
+
+# 14) Model Traning: Logistic Regression
+print("\nModel Training: Logistic Regression")
+
+from sklearn.linear_model import LogisticRegression
+
+# Model Training: Logistic Regression  
+model = LogisticRegression(max_iter=1000, solver='liblinear')
+model.fit(X_train_final, y_train)
+
+# Predictions
+print("\n--- Making Predictions ---")
+y_pred = model.predict(X_test_final)
+
+# Evaluation
+print("Accuracy:", accuracy_score(y_test, y_pred), "\n")
 
 # Empty / whitespace-only
 for col in ["subject", "body"]:
