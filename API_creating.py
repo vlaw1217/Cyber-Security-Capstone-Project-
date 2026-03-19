@@ -4,6 +4,7 @@ import shutil
 import re
 import pandas as pd
 from kaggle.api.kaggle_api_extended import KaggleApi
+from sklearn.model_selection import train_test_split
 
 DATASET = "naserabdullahalam/phishing-email-dataset"
 TMP_DIR = ".tmp_kaggle_download"   # Temporary folder (not committed)
@@ -103,13 +104,27 @@ df["url_count"] = df["urls"]
 print("\nMetadata feature preview:")
 print(df[["subject_length", "body_length", "url_count"]].head(5))
 
+# 11) Step 6: Train/Test Split 
+X = df['email_text']
+y = df['label']
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y,
+    test_size=0.2,
+    random_state=42,
+    stratify=y
+)
+
+print("\nTrain size:", X_train.shape)
+print("Test size:", X_test.shape, "\n")
+
 # Empty / whitespace-only
 for col in ["subject", "body"]:
     if col in df.columns:
         empty = df[col].astype(str).str.strip().eq("").sum()
         print(f"Empty {col}:", empty)
-
-print("Label value counts:\n", df["label"].value_counts(dropna=False) if "label" in df.columns else "No label column")
+        
+print("\nLabel value counts:\n", df["label"].value_counts(dropna=False) if "label" in df.columns else "No label column")
 
 print("Loaded:", csv_files[0])
 print("Shape:", df.shape)
