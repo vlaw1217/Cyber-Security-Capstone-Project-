@@ -37,6 +37,8 @@ Each role contributes to planning, implementation, evaluation, and reporting.
 - Python
 - pandas, NumPy
 - scikit-learn
+- FastAPI and Uvicorn
+- React JS and Vite
 - Jupyter Notebook
 - VS Code
 - Git & GitHub
