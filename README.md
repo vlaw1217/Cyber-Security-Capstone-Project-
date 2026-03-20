@@ -46,3 +46,7 @@ Each role contributes to planning, implementation, evaluation, and reporting.
 ## Disclaimer
 - This project is developed strictly for academic purposes.
 - All datasets are publicly available Visualization and dashboarding
+
+## Model Version
+- phishing_model_v1.pkl → Logistic Regression model
+- tfidf_vectorizer_v1.pkl → TF-IDF vectorizer
