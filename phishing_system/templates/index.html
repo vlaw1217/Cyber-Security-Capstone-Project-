@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Phishing Detection</title>
+</head>
+<body>
+
+<h1>Phishing Email Detection</h1>
+
+<form action="/predict" method="post">
+
+    <label>Subject:</label><br>
+    <input type="text" name="subject" size="60"><br><br>
+
+    <label>Body:</label><br>
+    <textarea name="body" rows="10" cols="60"></textarea><br><br>
+
+    <input type="submit" value="Check Email">
+
+</form>
+
+</body>
+</html>
+
+<style>
+body {
+    font-family: Arial;
+    margin: 40px;
+}
+input, textarea {
+    width: 100%;
+}
+button {
+    padding: 10px;
+}
+</style>

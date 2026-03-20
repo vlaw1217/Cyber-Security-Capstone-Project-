@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, render_template, request
 import joblib
 
 # Initialize Flask app
@@ -11,31 +11,26 @@ vectorizer = joblib.load("tfidf_vectorizer_v1.pkl")
 # Dummy test route
 @app.route("/")
 def home():
-    return "Phishing Detection System Running!"
+    return render_template("index.html")
 
-# Test prediction route
-@app.route("/test")
-def test_prediction():
-    
-    # Example email
-    subject = "URGENT: Verify your account now"
-    body = "Click this link immediately to avoid suspension"
+@app.route("/predict", methods=["POST"])
+def predict():
+    subject = request.form["subject"]
+    body = request.form["body"]
 
-    # === SAME preprocessing as training ===
     text = (subject + " " + body).lower()
 
-    # TF-IDF transformation
+    # TF-IDF
     X_tfidf = vectorizer.transform([text])
 
-    # ⚠️ IMPORTANT: your model expects MORE features
-    # For now, we will fake metadata (temporary)
+    # Metadata features
     import numpy as np
     from scipy.sparse import hstack
 
     subject_length = len(subject)
     body_length = len(body)
-    url_count = 1
-    phishing_keyword_count = 2
+    url_count = text.count("http")
+    phishing_keyword_count = sum(word in text for word in ["urgent", "verify", "account", "click"])
     uppercase_count = sum(1 for w in text.split() if w.isupper())
     digit_count = sum(c.isdigit() for c in text)
 
@@ -48,17 +43,32 @@ def test_prediction():
         digit_count
     ]])
 
-    # Combine features
     X_final = hstack([X_tfidf, meta_features])
 
-    # Prediction
     prediction = model.predict(X_final)[0]
     prob = model.predict_proba(X_final)[0]
 
+    # return f"""
+    # <h2>Result</h2>
+    # Prediction: {prediction} <br>
+    # Phishing Probability: {prob[1]:.4f} <br>
+    # Legitimate Probability: {prob[0]:.4f} <br>
+    # <br><a href="/">Try another</a>
+    # """
+
+    label = "Phishing" if prediction == 1 else "Legitimate"
+    color = "red" if prediction == 1 else "green"
+
     return f"""
-    Prediction: {prediction} <br>
-    Phishing Probability: {prob[1]:.4f} <br>
-    Legitimate Probability: {prob[0]:.4f}
+    <h2>Result</h2>
+    <p><strong style="color:{color}; font-size:20px;">
+    {label}
+    </strong></p>
+
+    <p>Phishing Probability: {prob[1]:.4f}</p>
+    <p>Legitimate Probability: {prob[0]:.4f}</p>
+
+    <br><a href="/">Try another</a>
     """
 
 # Run app
