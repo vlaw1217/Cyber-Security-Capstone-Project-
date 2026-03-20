@@ -228,6 +228,20 @@ cm = confusion_matrix(y_test, y_pred)
 print("\nConfusion Matrix:")
 print(cm,"\n")
 
+# =====================
+# Phase 1 — Save Model 
+# =====================
+
+import joblib
+
+# Save trained model
+joblib.dump(model, "phishing_model_v1.pkl")
+
+# Save TF-IDF vectorizer
+joblib.dump(tfidf, "tfidf_vectorizer_v1.pkl")
+
+print("Model and vectorizer saved successfully.")
+
 # Empty / whitespace-only
 for col in ["subject", "body"]:
     if col in df.columns:
