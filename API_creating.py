@@ -1,81 +1,130 @@
+# ---------------------------
+# IMPORT REQUIRED LIBRARIES
+# ---------------------------
 import os
-import glob 
-import shutil 
+import glob
+import shutil
 import re
 import pandas as pd
+
+# Kaggle API for dataset download
 from kaggle.api.kaggle_api_extended import KaggleApi
+
+# Machine Learning libraries
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
-from scipy.sparse import hstack
-from scipy.sparse import csr_matrix
+from scipy.sparse import hstack, csr_matrix
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import accuracy_score, classification_report, confusion_matrix
 
+import joblib  # For saving model and vectorizer
+
+
+# ---------------------------
+# CONFIGURATION
+# ---------------------------
 DATASET = "naserabdullahalam/phishing-email-dataset"
 TMP_DIR = ".tmp_kaggle_download"   # Temporary folder (not committed)
 
-# Authenticate with Kaggle
+
+# ---------------------------
+# STEP 1: AUTHENTICATE KAGGLE
+# ---------------------------
 api = KaggleApi()
 api.authenticate()
 
-# 1) Fresh temp directory every run
+
+# ---------------------------
+# STEP 2: PREPARE TEMP DIRECTORY
+# ---------------------------
+# Remove old temp folder if exists (clean state)
 if os.path.exists(TMP_DIR):
     shutil.rmtree(TMP_DIR)
+
+# Create fresh temp folder
 os.makedirs(TMP_DIR, exist_ok=True)
 
-# 2) Download & unzip into temp
+
+# ---------------------------
+# STEP 3: DOWNLOAD DATASET
+# ---------------------------
 api.dataset_download_files(DATASET, path=TMP_DIR, unzip=True)
 
-# 3) Find the CSV(s) that came from this dataset
-csv_files = [f for f in glob.glob(os.path.join(TMP_DIR, "*.csv"))
-             if "CEAS_08" in os.path.basename(f)]
+
+# ---------------------------
+# STEP 4: LOCATE CSV FILES
+# ---------------------------
+# Only select relevant dataset files
+csv_files = [
+    f for f in glob.glob(os.path.join(TMP_DIR, "*.csv"))
+    if "CEAS_08" in os.path.basename(f)
+]
+
 print("CSV files downloaded:", csv_files)
 
 if not csv_files:
-    raise FileNotFoundError("No CSV found after download/unzip. Check dataset contents or Kaggle access rules.")
+    raise FileNotFoundError("No CSV found. Check dataset or Kaggle access.")
 
-# 4) Load into memory (DataFrame)
+
+# ---------------------------
+# STEP 5: LOAD DATA
+# ---------------------------
 dfs = [pd.read_csv(f) for f in csv_files]
 df = pd.concat(dfs, ignore_index=True)
 
-# --- Data quality BEFORE cleaning ---
+
+# ---------------------------
+# DATA QUALITY CHECK (BEFORE CLEANING)
+# ---------------------------
 print("\n--- Data Quality BEFORE Cleaning ---")
 print("Duplicate rows:", df.duplicated().sum())
 print("Null counts:\n", df.isna().sum())
 
-# 5) Cleaning Step 1: Remove duplicates and Fill missing values
+
+# ---------------------------
+# STEP 6: CLEANING
+# ---------------------------
+
+# 6.1 Remove duplicates
 before = df.shape[0]
 df = df.drop_duplicates()
 after = df.shape[0]
-
 print("\nDuplicates removed:", before - after)
 
-# Fill missing values 
+# 6.2 Fill missing values
 df["subject"] = df["subject"].fillna("")
 df["receiver"] = df["receiver"].fillna("unknown")
 
-# Data quality check
+
+# ---------------------------
+# DATA QUALITY CHECK (AFTER CLEANING)
+# ---------------------------
 print("\n--- Data Quality AFTER Cleaning ---")
 print("Duplicate rows:", df.duplicated().sum())
 print("Null counts:\n", df.isna().sum())
 
-# 6) Cleaning Step 2: Normalize text
+
+# ---------------------------
+# STEP 7: TEXT NORMALIZATION
+# ---------------------------
 def normalize_text(text):
-    text = text.lower()                 # convert to lowercase
-    text = re.sub(r'[^\w\s]', '', text) # remove punctuation
-    text = re.sub(r'\s+', ' ', text)    # remove extra spaces
+    text = text.lower()                         # Convert to lowercase
+    text = re.sub(r'[^\w\s]', '', text)         # Remove punctuation
+    text = re.sub(r'\s+', ' ', text)            # Remove extra spaces
     return text
 
 # Apply normalization
-df['subject'] = df['subject'].apply(normalize_text)
-df['body'] = df['body'].apply(normalize_text)
+df["subject"] = df["subject"].apply(normalize_text)
+df["body"] = df["body"].apply(normalize_text)
 
-# Removes leading/trailing spaces that remain after regex cleaning
+# Remove leading/trailing whitespace
 df["subject"] = df["subject"].str.strip()
 df["body"] = df["body"].str.strip()
 
-# 7) Cleaning Step 3: Combine subject and body
+
+# ---------------------------
+# STEP 8: COMBINE TEXT FIELDS
+# ---------------------------
 print("\n--- BEFORE Combining ---")
 print(df[["subject", "body"]].head(3))
 
@@ -83,65 +132,61 @@ df["email_text"] = df["subject"] + " " + df["body"]
 
 print("\n--- AFTER Combining ---")
 print(df[["email_text"]].head(3))
-print("\nText normalization completed.\n")
 
-# 8) Cleaning Step 4: Convert label to integer
+
+# ---------------------------
+# STEP 9: LABEL CONVERSION
+# ---------------------------
 print("\n--- BEFORE Label Conversion ---")
 print(df["label"].head(5))
 
-# Convert label to integer
 df["label"] = df["label"].astype(int)
 
 print("\n--- AFTER Label Conversion ---")
 print(df["label"].head(5))
 
-# 9) Extract Feature Step 1: Simple metadata features
+
+# ---------------------------
+# STEP 10: METADATA FEATURES
+# ---------------------------
 print("\n--- Creating Metadata Features ---")
 
-# subject length
 df["subject_length"] = df["subject"].apply(len)
-
-# body length
 df["body_length"] = df["body"].apply(len)
+df["url_count"] = df["urls"]  # already numeric
 
-# URL count (urls column already contains numeric values)
-df["url_count"] = df["urls"]
-
-print("\nMetadata feature preview:")
 print(df[["subject_length", "body_length", "url_count"]].head(5))
 
-# 10) Extract Feature Step 2: Phishing-Specific Features
-print("\n Creating Phishing-Specific Features")
 
-# Define phishing keywords
+# ---------------------------
+# STEP 11: PHISHING FEATURES
+# ---------------------------
+print("\n--- Creating Phishing Features ---")
+
 phishing_keywords = [
     "urgent", "verify", "click", "login", "password",
     "account", "bank", "security", "update", "confirm"
 ]
 
-# Count phishing keywords
+# Count keyword occurrences
 df["phishing_keyword_count"] = df["email_text"].apply(
     lambda x: sum(x.count(word) for word in phishing_keywords)
 )
 
-# Count ALL CAPS words (e.g., "URGENT", "FREE")
+# Count uppercase words (signal urgency)
 df["uppercase_count"] = df["email_text"].apply(
     lambda x: sum(1 for word in x.split() if word.isupper())
 )
 
-# Count number of digits (often in fake links or codes)
+# Count digits (common in malicious links)
 df["digit_count"] = df["email_text"].str.count(r"\d")
 
-print("\nPhishing feature preview:")
-print(df[[
-    "phishing_keyword_count",
-    "uppercase_count",
-    "digit_count"
-]].head(5))
 
-# 11) Extract Feature Step 3: Train/Test Split 
-X = df['email_text']
-y = df['label']
+# ---------------------------
+# STEP 12: TRAIN / TEST SPLIT
+# ---------------------------
+X = df["email_text"]
+y = df["label"]
 
 X_train, X_test, y_train, y_test = train_test_split(
     X, y,
@@ -150,112 +195,82 @@ X_train, X_test, y_train, y_test = train_test_split(
     stratify=y
 )
 
-# 12) Extract Feature Step 4: TF-IDF
-print("\nTF-IDF Feature Extraction:")
-# Initialize TF-IDF
+
+# ---------------------------
+# STEP 13: TF-IDF FEATURE EXTRACTION
+# ---------------------------
 tfidf = TfidfVectorizer(
-    max_features=5000,      # limit vocabulary size
-    ngram_range=(1, 2),     # unigrams + bigrams
-    stop_words='english'    # remove common words
+    max_features=5000,
+    ngram_range=(1, 2),
+    stop_words="english"
 )
 
-# Fit on training data ONLY (important!)
+# Fit ONLY on training data
 X_train_tfidf = tfidf.fit_transform(X_train)
 
-# Transform test data (DO NOT fit again)
+# Transform test data
 X_test_tfidf = tfidf.transform(X_test)
 
-print("TF-IDF Train shape:", X_train_tfidf.shape)
-print("TF-IDF Test shape:", X_test_tfidf.shape)
 
-print("\nTrain size:", X_train.shape)
-print("Test size:", X_test.shape, "\n")
-
-# 13) Extract Feature Step 5: Combine all features, TF-IDF, Metadata, Phishing Signals
-print("Combine All Features")
-
-# All non-TF-IDF features
+# ---------------------------
+# STEP 14: COMBINE ALL FEATURES
+# ---------------------------
 meta_features = [
-    'subject_length',
-    'body_length',
-    'url_count',
-    'phishing_keyword_count',
-    'uppercase_count',
-    'digit_count'
+    "subject_length",
+    "body_length",
+    "url_count",
+    "phishing_keyword_count",
+    "uppercase_count",
+    "digit_count"
 ]
 
-# Extract metadata + phishing features using correct indices
+# Extract metadata aligned with indices
 X_train_meta = df.loc[X_train.index, meta_features]
 X_test_meta = df.loc[X_test.index, meta_features]
 
-# Convert to sparse matrix
+# Convert to sparse format
 X_train_meta_sparse = csr_matrix(X_train_meta.values)
 X_test_meta_sparse = csr_matrix(X_test_meta.values)
 
-# Combine TF-IDF + all additional features
+# Combine TF-IDF + metadata
 X_train_final = hstack([X_train_tfidf, X_train_meta_sparse])
 X_test_final = hstack([X_test_tfidf, X_test_meta_sparse])
 
-print("Final Train shape:", X_train_final.shape)
-print("Final Test shape:", X_test_final.shape)
 
-# 14) Model Traning: Logistic Regression
-print("\nModel Training: Logistic Regression")
+# ---------------------------
+# STEP 15: MODEL TRAINING
+# ---------------------------
+print("\n--- Model Training ---")
 
-from sklearn.linear_model import LogisticRegression
-
-# Model Training: Logistic Regression  
-model = LogisticRegression(max_iter=1000, solver='liblinear')
+model = LogisticRegression(max_iter=1000, solver="liblinear")
 model.fit(X_train_final, y_train)
 
-# Predictions
-print("\n--- Making Predictions ---")
+
+# ---------------------------
+# STEP 16: PREDICTION & EVALUATION
+# ---------------------------
 y_pred = model.predict(X_test_final)
 
-# Evaluation
-print("Accuracy:", accuracy_score(y_test, y_pred), "\n")
+print("Accuracy:", accuracy_score(y_test, y_pred))
 
-# 15) Full Evaluation
-print("\n-----Detailed Evaluation-----")
-
-# Classification Report
 print("\nClassification Report:")
 print(classification_report(y_test, y_pred))
 
-# Confusion Matrix
-cm = confusion_matrix(y_test, y_pred)
-
 print("\nConfusion Matrix:")
-print(cm,"\n")
+print(confusion_matrix(y_test, y_pred))
 
-# =====================
-# Phase 1 — Save Model 
-# =====================
 
-import joblib
-
-# Save trained model
+# ---------------------------
+# STEP 17: SAVE MODEL
+# ---------------------------
 joblib.dump(model, "phishing_model_v1.pkl")
-
-# Save TF-IDF vectorizer
 joblib.dump(tfidf, "tfidf_vectorizer_v1.pkl")
 
 print("Model and vectorizer saved successfully.")
 
-# Empty / whitespace-only
-for col in ["subject", "body"]:
-    if col in df.columns:
-        empty = df[col].astype(str).str.strip().eq("").sum()
-        print(f"Empty {col}:", empty)
-        
-print("\nLabel value counts:\n", df["label"].value_counts(dropna=False) if "label" in df.columns else "No label column")
 
-print("Loaded:", csv_files[0])
-print("Shape:", df.shape)
-print("Columns:", df.columns.tolist())
-print(df.head(10))
-
-# 6) Delete temp files to comply with 'no dataset file stored'
+# ---------------------------
+# STEP 18: CLEANUP TEMP FILES
+# ---------------------------
 shutil.rmtree(TMP_DIR)
 print("Temporary dataset files deleted.")
-
