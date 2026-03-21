@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+</head>
+<body>
+    <h1>Phishing Detection Dashboard</h1>
+
+    <p>Welcome! You are logged in.</p>
+
+    <a href="/logout">Logout</a>
+
+    <hr>
+
+    <h2>Check an Email</h2>
+    <form action="/predict" method="POST">
+        <label>Subject:</label><br>
+        <input type="text" name="subject" required style="width: 400px;"><br><br>
+
+        <label>Body:</label><br>
+        <textarea name="body" rows="8" cols="60" required></textarea><br><br>
+
+        <button type="submit">Predict</button>
+    </form>
+
+    <hr>
+
+    <h2>Prediction History</h2>
+
+    {% if history %}
+    <table border="1" cellpadding="8">
+        <tr>
+            <th>Subject</th>
+            <th>Prediction</th>
+            <th>Probability</th>
+        </tr>
+
+        {% for row in history %}
+        <tr>
+            <td>{{ row[0] }}</td>
+            <td>{{ row[1] }}</td>
+            <td>{{ "%.4f"|format(row[2]) }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+    {% else %}
+    <p>No prediction history yet.</p>
+    {% endif %}
+</body>
+</html>

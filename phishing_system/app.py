@@ -157,42 +157,53 @@ def register():
 # ---------------------------
 # USER LOGIN
 # ---------------------------
-@app.route("/login", methods=["POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
+    if request.method == "POST":
+        username = request.form["username"]
+        password = request.form["password"]
 
-    # Retrieve login credentials
-    username = request.form["username"]
-    password = request.form["password"]
+        conn = sqlite3.connect("app.db")
+        cursor = conn.cursor()
 
-    conn = sqlite3.connect("app.db")
-    cursor = conn.cursor()
+        cursor.execute("SELECT * FROM users WHERE username=?", (username,))
+        user = cursor.fetchone()
 
-    # Fetch user by username
-    cursor.execute("SELECT * FROM users WHERE username=?", (username,))
-    user = cursor.fetchone()
+        conn.close()
 
-    conn.close()
+        if user and check_password_hash(user[2], password):
+            session["user_id"] = user[0]
+            return redirect("/dashboard")
+        else:
+            return "Login Failed"
 
-    # Verify password using hash
-    if user and check_password_hash(user[2], password):
-        session["user_id"] = user[0]  # Store user session
-        return redirect("/dashboard")
-    else:
-        return "Login Failed"
-
+    # GET request → show login page
+    return render_template("login.html")
 
 # ---------------------------
 # DASHBOARD
 # ---------------------------
 @app.route("/dashboard")
 def dashboard():
-
-    # Restrict access to logged-in users only
+    # Restrict access to logged-in users
     if "user_id" not in session:
         return redirect("/")
 
-    return render_template("index.html")
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
 
+    # Get current user's prediction history
+    cursor.execute("""
+    SELECT subject, prediction, probability
+    FROM predictions
+    WHERE user_id = ?
+    ORDER BY id DESC
+    """, (session["user_id"],))
+
+    history = cursor.fetchall()
+    conn.close()
+
+    return render_template("dashboard.html", history=history)
 
 # ---------------------------
 # LOGOUT
