@@ -21,7 +21,8 @@ def init_db():
         subject TEXT,
         body TEXT,
         prediction TEXT,
-        probability REAL
+        probability REAL,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
     """)
 

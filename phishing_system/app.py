@@ -194,7 +194,7 @@ def dashboard():
 
     # Get current user's prediction history
     cursor.execute("""
-    SELECT subject, prediction, probability
+    SELECT subject, prediction, probability, timestamp
     FROM predictions
     WHERE user_id = ?
     ORDER BY id DESC

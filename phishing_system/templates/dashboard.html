@@ -33,6 +33,7 @@
             <th>Subject</th>
             <th>Prediction</th>
             <th>Probability</th>
+            <th>Time</th>
         </tr>
 
         {% for row in history %}
@@ -48,6 +49,7 @@
                 {% endif %}
             </td>
             <td>{{ "%.4f"|format(row[2]) }}</td>
+            <td>{{ row[3] }}</td>
         </tr>
         {% endfor %}
     </table>
