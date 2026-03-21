@@ -38,7 +38,15 @@
         {% for row in history %}
         <tr>
             <td>{{ row[0] }}</td>
-            <td>{{ row[1] }}</td>
+            <td>
+                {% if row[1] == "Phishing" %}
+                    <span style="color:red;"><b>{{ row[1] }}</b></span>
+                {% elif row[1] == "Suspicious" %}
+                    <span style="color:orange;"><b>{{ row[1] }}</b></span>
+                {% else %}
+                    <span style="color:green;"><b>{{ row[1] }}</b></span>
+                {% endif %}
+            </td>
             <td>{{ "%.4f"|format(row[2]) }}</td>
         </tr>
         {% endfor %}
