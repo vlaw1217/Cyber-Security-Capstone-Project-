@@ -2,7 +2,82 @@
 <html>
 <head>
     <title>Dashboard</title>
-</head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 40px;
+        }
+
+        h1 {
+            color: #2c3e50;
+        }
+
+        h2 {
+            margin-top: 30px;
+            color: #34495e;
+        }
+
+        a {
+            text-decoration: none;
+            color: #2980b9;
+            font-weight: bold;
+        }
+
+        form {
+            margin-top: 15px;
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            background-color: white;
+        }
+
+        th {
+            background-color: #2c3e50;
+            color: white;
+            padding: 10px;
+        }
+
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+
+        tr:hover {
+            background-color: #f2f2f2;
+        }
+
+        hr {
+            margin: 30px 0;
+        }
+    </style>
+</head> 
+
 <body>
     <h1>Phishing Detection Dashboard</h1>
 
@@ -15,12 +90,12 @@
     <h2>Check an Email</h2>
     <form action="/predict" method="POST">
         <label>Subject:</label><br>
-        <input type="text" name="subject" required style="width: 400px;"><br><br>
+        <input type="text" name="subject" placeholder="Enter email subject..." required><br><br>
 
         <label>Body:</label><br>
-        <textarea name="body" rows="8" cols="60" required></textarea><br><br>
+        <textarea name="body" rows="8" placeholder="Paste email content here..." required></textarea><br><br>
 
-        <button type="submit">Predict</button>
+        <button type="submit">Analyze Email</button>
     </form>
 
     <hr>
