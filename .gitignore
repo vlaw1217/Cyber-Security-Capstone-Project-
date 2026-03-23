@@ -20,6 +20,7 @@ __pycache__/
 *.pyc
 .venv/
 env/
+app.db
 
 # =====================
 # Jupyter
@@ -36,3 +37,5 @@ Thumbs.db
 # Model Files (DO NOT COMMIT)
 # ============================
 *.pkl
+!phishing_model_v1.pkl
+!tfidf_vectorizer_v1.pkl

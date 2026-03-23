@@ -4,6 +4,7 @@ import numpy as np
 from flask import Flask, render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from scipy.sparse import hstack
+from database import get_all_predictions
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -185,25 +186,15 @@ def login():
 # ---------------------------
 @app.route("/dashboard")
 def dashboard():
-    # Restrict access to logged-in users
+     # Restrict access to logged-in users
     if "user_id" not in session:
         return redirect("/")
 
-    conn = sqlite3.connect("app.db")
-    cursor = conn.cursor()
+    # Get all prediction records from database
+    data = get_all_predictions()
 
-    # Get current user's prediction history
-    cursor.execute("""
-    SELECT subject, prediction, probability, timestamp
-    FROM predictions
-    WHERE user_id = ?
-    ORDER BY id DESC
-    """, (session["user_id"],))
-
-    history = cursor.fetchall()
-    conn.close()
-
-    return render_template("dashboard.html", history=history)
+    # return render_template("dashboard.html", history=history)
+    return render_template('dashboard.html', data=data)
 
 # ---------------------------
 # LOGOUT
@@ -215,7 +206,6 @@ def logout():
     session.clear()
 
     return redirect("/")
-
 
 # ---------------------------
 # RUN APPLICATION
