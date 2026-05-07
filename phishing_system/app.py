@@ -188,7 +188,11 @@ def login():
             session["user_id"] = user[0]
             return redirect("/dashboard")
         else:
-            return "Login Failed"
+            return """
+            <h2 style="color:red;">Login Failed</h2>
+            <p>Invalid username or password.</p>
+            <a href="/">Try Again</a>
+            """
 
     # GET request → show login page
     return render_template("login.html")
