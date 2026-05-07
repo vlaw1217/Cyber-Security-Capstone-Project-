@@ -4,7 +4,7 @@ import numpy as np
 from flask import Flask, render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from scipy.sparse import hstack, csr_matrix
-from database import get_all_predictions
+from database import get_all_predictions, get_user_predictions
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -138,8 +138,8 @@ def register():
     if request.method == "POST":
 
         # Get user input
-        username = request.form["username"]
-        password = request.form["password"]
+        username = request.form["username"].strip()
+        password = request.form["password"].strip()
 
         # Hash password for secure storage
         hashed_password = generate_password_hash(password)
@@ -178,8 +178,8 @@ def register():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        username = request.form["username"]
-        password = request.form["password"]
+        username = request.form["username"].strip()
+        password = request.form["password"].strip()
 
         conn = sqlite3.connect("app.db")
         cursor = conn.cursor()
@@ -191,6 +191,8 @@ def login():
 
         if user and check_password_hash(user[2], password):
             session["user_id"] = user[0]
+            session["username"] = user[1]
+            session["role"] = user[3]
             return redirect("/dashboard")
         else:
             return """
@@ -211,11 +213,22 @@ def dashboard():
     if "user_id" not in session:
         return redirect("/")
 
-    # Get all prediction records from database
-    data = get_all_predictions()
+     # Admin can view all prediction records
+    if session.get("role") == "admin":
+        data = get_all_predictions()
+        dashboard_title = "Admin Dashboard"
+    else:
+        # Regular users can only view their own prediction history
+        data = get_user_predictions(session["user_id"])
+        dashboard_title = "User Dashboard"
 
-    # return render_template("dashboard.html", history=history)
-    return render_template('dashboard.html', data=data)
+    return render_template(
+        "dashboard.html",
+        data=data,
+        dashboard_title=dashboard_title,
+        username=session.get("username"),
+        role=session.get("role")
+    )
 
 # ---------------------------
 # LOGOUT

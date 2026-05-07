@@ -67,6 +67,27 @@ def get_all_predictions():
     # Return data to Flask app
     return rows
 
+# ---------------------------------------------------
+# Retrieve prediction records for one specific user
+# ---------------------------------------------------
+def get_user_predictions(user_id):
+    # Connect to database
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    # Get only predictions submitted by this user
+    cursor.execute("""
+        SELECT id, user_id, subject, body, prediction, probability, timestamp
+        FROM predictions
+        WHERE user_id = ?
+        ORDER BY timestamp DESC
+    """, (user_id,))
+
+    rows = cursor.fetchall()
+
+    conn.close()
+
+    return rows
 
 # ---------------------------------------------------
 # Run database initialization when file is executed

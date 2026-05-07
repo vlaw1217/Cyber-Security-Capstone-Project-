@@ -79,9 +79,10 @@
 </head> 
 
 <body>
-    <h1>Phishing Detection Dashboard</h1>
+    <h1>{{ dashboard_title }}</h1>
 
-    <p>Welcome! You are logged in.</p>
+    <p>Welcome! {{ username }}.</p>
+    <p>Role: <strong>{{ role }}</strong></p>
 
     <a href="/logout">Logout</a>
 
