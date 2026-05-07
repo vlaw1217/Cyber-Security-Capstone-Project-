@@ -3,7 +3,7 @@ import sqlite3
 import numpy as np
 from flask import Flask, render_template, request, redirect, session
 from werkzeug.security import generate_password_hash, check_password_hash
-from scipy.sparse import hstack
+from scipy.sparse import hstack, csr_matrix
 from database import get_all_predictions
 
 # Initialize Flask application
@@ -23,7 +23,7 @@ vectorizer = joblib.load("tfidf_vectorizer_v1.pkl")
 @app.route("/")
 def home():
     # Render main page (login / input form)
-    return render_template("index.html")
+    return render_template("login.html")
 
 
 # ---------------------------
@@ -31,22 +31,34 @@ def home():
 # ---------------------------
 @app.route("/predict", methods=["POST"])
 def predict():
+    if "user_id" not in session:
+        return redirect("/")
 
     # 1. Retrieve user input from form
     subject = request.form["subject"]
     body = request.form["body"]
 
-    # Basic validation to prevent empty input
-    if not subject.strip() or not body.strip():
-        return "Please enter subject and body"
+    # 2. Combine subject and body, then normalize text
+    text = (subject + " " + body).lower().strip()
 
-    # Combine subject and body, normalize text
-    text = (subject + " " + body).lower()
+    # 3. Basic validation to prevent empty or too-short input
+    if len(text) < 10:
+        label = "Unable to classify"
+        color = "gray"
 
-    # 2. Convert text to TF-IDF feature vector
+        return f"""
+        <h2>Result</h2>
+        <p style="color:{color}; font-size:20px;">
+        <b>{label}</b>
+        </p>
+        The email content is too short for reliable analysis.<br>
+        <br><a href="/dashboard">Back</a>
+        """
+
+    # 4. Convert text to TF-IDF feature vector
     X_tfidf = vectorizer.transform([text])
 
-    # 3. Generate additional metadata features
+    # 5. Generate additional metadata features
     subject_length = len(subject)                     # Length of subject
     body_length = len(body)                           # Length of email body
     url_count = text.count("http")                    # Number of URLs
@@ -58,24 +70,24 @@ def predict():
     )                                                 # Count of uppercase words
     digit_count = sum(c.isdigit() for c in text)      # Count of digits
 
-    # Combine metadata into array
-    meta_features = np.array([[ 
-        subject_length,
-        body_length,
-        url_count,
-        phishing_keyword_count,
-        uppercase_count,
-        digit_count
+    # 6. Combine metadata into array
+    meta_features = csr_matrix([[
+    subject_length,
+    body_length,
+    url_count,
+    phishing_keyword_count,
+    uppercase_count,
+    digit_count
     ]])
 
     # Combine TF-IDF features with metadata features
     X_final = hstack([X_tfidf, meta_features])
 
-    # 4. Perform prediction
+    # 7. Perform prediction
     prediction = model.predict(X_final)[0]
     prob = model.predict_proba(X_final)[0]
 
-    # Assign label based on probability thresholds
+    # 8. Label logic
     if prob[1] > 0.8:
         label = "Phishing"
     elif prob[1] > 0.5:
@@ -83,10 +95,10 @@ def predict():
     else:
         label = "Legitimate"
 
-    # Color coding for UI display
+    #9. Color coding for UI display
     color = "red" if label == "Phishing" else "orange" if label == "Suspicious" else "green"
 
-    # 5. Store prediction result in database
+    # 10. Store prediction result in database
     conn = sqlite3.connect("app.db")
     cursor = conn.cursor()
 
@@ -94,7 +106,7 @@ def predict():
     INSERT INTO predictions (user_id, subject, body, prediction, probability)
     VALUES (?, ?, ?, ?, ?)
     """, (
-        session.get("user_id", 0),   # Default to 0 if user not logged in
+        session["user_id"],   
         subject,
         body,
         label,
@@ -104,7 +116,7 @@ def predict():
     conn.commit()
     conn.close()
 
-    # 6. Return result to user (simple HTML response)
+    # 11. Return result to user (simple HTML response)
     return f"""
     <h2>Result</h2>
     <p style="color:{color}; font-size:20px;">
