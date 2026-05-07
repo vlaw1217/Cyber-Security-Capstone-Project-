@@ -19,6 +19,7 @@ kaggle.json
 __pycache__/
 *.pyc
 .venv/
+venv/
 env/
 app.db
 
