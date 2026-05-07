@@ -16,7 +16,8 @@ def init_db():
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,   -- Unique user ID
             username TEXT UNIQUE,                   -- Username (must be unique)
-            password TEXT                           -- Password (plain text for PoC)
+            password TEXT,                          -- Hashed password
+            role TEXT DEFAULT 'user'                -- User role: user or admin 
         )
     """)
 

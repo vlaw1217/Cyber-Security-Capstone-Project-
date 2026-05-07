@@ -150,8 +150,8 @@ def register():
         try:
             # Insert new user into database
             cursor.execute(
-                "INSERT INTO users (username, password) VALUES (?, ?)",
-                (username, hashed_password)
+                "INSERT INTO users (username, password, role) VALUES (?, ?, ?)",
+                (username, hashed_password, "user")
             )
             conn.commit()
 
