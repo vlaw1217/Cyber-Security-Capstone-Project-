@@ -75,6 +75,32 @@
         hr {
             margin: 30px 0;
         }
+
+        .stats-grid { 
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .card h3 {
+            margin: 0;
+            color: #555;
+        }
+
+        .card p {
+            font-size: 28px;
+            font-weight: bold;
+            margin: 10px 0 0;
+        }
     </style>
 </head> 
 
@@ -101,6 +127,61 @@
 
     <hr>
 
+    {% if role == "admin" %}
+
+    {% set total = data|length %}
+    {% set phishing = data|selectattr("4", "equalto", "Phishing")|list|length %}
+    {% set suspicious = data|selectattr("4", "equalto", "Suspicious")|list|length %}
+    {% set legitimate = data|selectattr("4", "equalto", "Legitimate")|list|length %}
+
+    <h2>Admin Overview</h2>
+
+    <div class="stats-grid">
+
+        <div class="card">
+            <h3>Total Scans</h3>
+            <p>{{ total }}</p>
+        </div>
+
+        <div class="card">
+            <h3>Phishing</h3>
+            <p style="color:red;">{{ phishing }}</p>
+        </div>
+
+        <div class="card">
+            <h3>Suspicious</h3>
+            <p style="color:orange;">{{ suspicious }}</p>
+        </div>
+
+        <div class="card">
+            <h3>Legitimate</h3>
+            <p style="color:green;">{{ legitimate }}</p>
+        </div>
+
+    </div>
+
+    <h2>Admin Alerts</h2>
+
+    {% if phishing > 0 %}
+        <p style="color:red;">
+            <b>{{ phishing }}</b> phishing emails detected.
+        </p>
+    {% else %}
+        <p style="color:green;">
+            No phishing emails detected.
+        </p>
+    {% endif %}
+
+    {% if suspicious > 0 %}
+        <p style="color:orange;">
+            <b>{{ suspicious }}</b> suspicious emails require a manual user review.
+        </p>
+    {% endif %}
+
+    <hr>
+
+    {% endif %}
+    
     <h2>Prediction History</h2>
 
     {% if data %}
