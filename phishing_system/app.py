@@ -158,7 +158,12 @@ def register():
         # Handle duplicate username (UNIQUE constraint)
         except sqlite3.IntegrityError:
             conn.close()
-            return "Username already exists"
+            return """
+            <h2 style="color:red;">Username already exists</h2>
+            <p>Please choose a different username, or go back to login if you already have an account.</p>
+            <a href="/register">Try Another Username</a><br><br>
+            <a href="/">Back to Login</a>
+            """
 
         conn.close()
         return redirect("/")
