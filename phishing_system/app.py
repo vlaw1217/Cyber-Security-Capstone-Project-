@@ -140,7 +140,17 @@ def register():
         # Get user input
         username = request.form["username"].strip()
         password = request.form["password"].strip()
+        confirm_password = request.form["confirm_password"].strip()
 
+        # Check if passwords match
+
+        if password != confirm_password:
+            return """
+            <h2 style="color:red;">Passwords do not match</h2>
+            <p>Please re-enter your password carefully.</p>
+            <a href="/register">Try Again</a>
+            """
+        
         # Hash password for secure storage
         hashed_password = generate_password_hash(password)
 

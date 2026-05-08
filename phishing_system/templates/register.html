@@ -1,13 +1,124 @@
-<h2>Register</h2>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Register</title>
 
-<form action="/register" method="post">
-    Username:<br>
-    <input type="text" name="username"><br><br>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
 
-    Password:<br>
-    <input type="password" name="password"><br><br>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 40px;
+        }
 
-    <input type="submit" value="Register">
-</form>
+        .auth-container {
+            background-color: white;
+            max-width: 450px;
+            margin: 80px auto;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            transition: 0.2s ease;
+        }
 
-<a href="/">Login</a>
+        .auth-container:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.12);
+        }
+
+        h2 {
+            color: #2c3e50;
+            text-align: center;
+        }
+
+        h5 {
+            text-align: center;
+            color: #555;
+            margin-top: -10px;
+            margin-bottom: 25px;
+            font-size: 15px;
+        }
+
+        .welcome-text {
+            text-align: center;
+            color: #555;
+            font-size: 15px;
+            line-height: 1.5;
+            margin-bottom: 25px;
+        }
+
+        .logo {
+            font-size: 42px;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            margin-bottom: 15px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        input[type="submit"] {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s ease;
+        }
+
+        input[type="submit"]:hover {
+            background-color: #2980b9;
+        }
+
+        a {
+            text-decoration: none;
+            color: #2980b9;
+            font-weight: bold;
+        }
+
+        .link-text {
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="auth-container">
+        <div class="logo">🛡️</div>
+
+        <h2>Create Account</h2>
+        <h5>Join the Phishing Detection System</h5>
+
+        <p class="welcome-text">
+            Create an account to analyze suspicious emails, track your scan history, and access your security dashboard.
+        </p>
+
+        <form action="/register" method="post">
+            Username:<br>
+            <input type="text" name="username" placeholder="Choose a username" required>
+
+            Password:<br>
+            <input type="password" name="password" placeholder="Create a password" required>
+
+            Re-enter Password:<br>
+            <input type="password" name="confirm_password" placeholder="Re-enter your password" required>
+
+            <input type="submit" value="Register">
+        </form>
+
+        <p class="link-text">
+            Already have an account? <a href="/">Login</a>
+        </p>
+    </div>
+
+</body>
+</html>
