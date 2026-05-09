@@ -2,6 +2,7 @@ import joblib
 import sqlite3
 import numpy as np
 from flask import Flask, render_template, request, redirect, session
+from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from scipy.sparse import hstack, csr_matrix
 from database import get_all_predictions, get_user_predictions
@@ -15,6 +16,46 @@ app.secret_key = "secret123"
 # Load trained ML model and TF-IDF vectorizer
 model = joblib.load("phishing_model_v1.pkl")
 vectorizer = joblib.load("tfidf_vectorizer_v1.pkl")
+
+# ---------------------------
+# DATABASE MIGRATION
+# ---------------------------
+# Ensure the users table has the is_blocked column.
+# This prevents errors on other computers where app.db may not have the new column yet.
+def ensure_is_blocked_column():
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    cursor.execute("PRAGMA table_info(users)")
+    columns = [column[1] for column in cursor.fetchall()]
+
+    if "is_blocked" not in columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN is_blocked INTEGER DEFAULT 0")
+        conn.commit()
+
+    conn.close()
+
+
+# ---------------------------
+# ADMIN ACCESS CONTROL
+# ---------------------------
+# This decorator protects admin-only routes.
+# It first checks whether a user is logged in.
+# Then it checks whether the logged-in user's role is "admin".
+# If the user is not logged in, they are redirected to the login page.
+# If the user is logged in but not an admin, they are redirected to the dashboard.
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if "user_id" not in session:
+            return redirect("/")
+
+        if session.get("role") != "admin":
+            return redirect("/dashboard")
+
+        return f(*args, **kwargs)
+
+    return decorated_function
 
 
 # ---------------------------
@@ -199,11 +240,23 @@ def login():
 
         conn.close()
 
+        # Check whether the account has been blocked by an admin.
+        # If is_blocked = 1, stop the login process and show an account blocked message.
+        # This prevents blocked users from accessing the dashboard even with the correct password.
         if user and check_password_hash(user[2], password):
+            # Check if account is blocked
+            if len(user) > 4 and user[4] == 1:
+                return """
+                <h2 style="color:red;">Account Blocked</h2>
+                <p>Your account has been blocked by an administrator.</p>
+                <a href="/">Back to Login</a>
+                """
+
             session["user_id"] = user[0]
             session["username"] = user[1]
             session["role"] = user[3]
             return redirect("/dashboard")
+            
         else:
             return """
             <h2 style="color:red;">Login Failed</h2>
@@ -219,26 +272,155 @@ def login():
 # ---------------------------
 @app.route("/dashboard")
 def dashboard():
-     # Restrict access to logged-in users
+    # Restrict dashboard access to logged-in users only.
+    # If no user_id exists in the session, redirect back to the login page.
     if "user_id" not in session:
         return redirect("/")
 
-     # Admin can view all prediction records
+    # Admin users can view all prediction records from every user.
+    # Admin users also retrieve the full user list for user-management features.
     if session.get("role") == "admin":
         data = get_all_predictions()
         dashboard_title = "Admin Dashboard"
+
+        # Retrieve all registered users so the admin can manage accounts.
+        # is_blocked is used to show whether each account is active or blocked.
+        conn = sqlite3.connect("app.db")
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, username, role, is_blocked FROM users ORDER BY id")
+        users = cursor.fetchall()
+        conn.close()
+    
+    # Regular users can only view their own prediction history.
+    # users is set to an empty list because user management is admin-only.
     else:
-        # Regular users can only view their own prediction history
         data = get_user_predictions(session["user_id"])
         dashboard_title = "User Dashboard"
+        users = []
 
+    # Send prediction data, user list, dashboard title, username, and role to dashboard.html.
     return render_template(
-        "dashboard.html",
-        data=data,
-        dashboard_title=dashboard_title,
-        username=session.get("username"),
-        role=session.get("role")
-    )
+    "dashboard.html",
+    data=data,
+    users=users,
+    dashboard_title=dashboard_title,
+    username=session.get("username"),
+    role=session.get("role")
+)
+
+
+# ---------------------------
+# ADMIN: ADD USER
+# ---------------------------
+@app.route("/admin/add_user", methods=["POST"])
+@admin_required
+def admin_add_user():
+    # Get new user information from the admin form.
+    username = request.form["username"].strip()
+    password = request.form["password"].strip()
+    role = request.form["role"].strip()
+
+    # Only allow valid roles.
+    # If an invalid role is submitted, default to regular user.
+    if role not in ["user", "admin"]:
+        role = "user"
+
+    # Store hashed password instead of plain text password.
+    hashed_password = generate_password_hash(password)
+
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    try:
+        # Create a new active account.
+        # is_blocked = 0 means the account is active.
+        cursor.execute(
+            "INSERT INTO users (username, password, role, is_blocked) VALUES (?, ?, ?, ?)",
+            (username, hashed_password, role, 0)
+        )
+        conn.commit()
+
+    except sqlite3.IntegrityError:
+        conn.close()
+        return """
+        <h2 style="color:red;">Username already exists</h2>
+        <p>Please choose another username.</p>
+        <a href="/dashboard">Back to Dashboard</a>
+        """
+
+    conn.close()
+    return redirect("/dashboard")
+
+
+# ---------------------------
+# ADMIN: BLOCK USER
+# ---------------------------
+@app.route("/admin/block_user/<int:user_id>", methods=["POST"])
+@admin_required
+def admin_block_user(user_id):
+    # Prevent the current admin from blocking their own account.
+    if user_id == session["user_id"]:
+        return """
+        <h2 style="color:red;">Action Not Allowed</h2>
+        <p>You cannot block your own admin account.</p>
+        <a href="/dashboard">Back to Dashboard</a>
+        """
+
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    # is_blocked = 1 means the user cannot log in.
+    cursor.execute("UPDATE users SET is_blocked = 1 WHERE id = ?", (user_id,))
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/dashboard")
+
+
+# ---------------------------
+# ADMIN: UNBLOCK USER
+# ---------------------------
+@app.route("/admin/unblock_user/<int:user_id>", methods=["POST"])
+@admin_required
+def admin_unblock_user(user_id):
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    # is_blocked = 0 means the user account is active again.
+    cursor.execute("UPDATE users SET is_blocked = 0 WHERE id = ?", (user_id,))
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/dashboard")
+
+
+# ---------------------------
+# ADMIN: DELETE USER
+# ---------------------------
+@app.route("/admin/delete_user/<int:user_id>", methods=["POST"])
+@admin_required
+def admin_delete_user(user_id):
+    # Prevent the current admin from deleting their own account.
+    if user_id == session["user_id"]:
+        return """
+        <h2 style="color:red;">Action Not Allowed</h2>
+        <p>You cannot delete your own admin account.</p>
+        <a href="/dashboard">Back to Dashboard</a>
+        """
+
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    # Delete the selected user account.
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+
+    conn.commit()
+    conn.close()
+
+    return redirect("/dashboard")
+
 
 # ---------------------------
 # LOGOUT
@@ -255,5 +437,8 @@ def logout():
 # RUN APPLICATION
 # ---------------------------
 if __name__ == "__main__":
+    # Ensure database has the required admin-management column before running the app.
+    ensure_is_blocked_column()
+
     # Debug mode ON for development
     app.run(debug=True)
