@@ -53,9 +53,17 @@ def get_all_predictions():
     # SQL query to get all predictions
     # Ordered by latest first
     cursor.execute("""
-        SELECT id, user_id, subject, body, prediction, probability, timestamp
+        SELECT 
+            predictions.id,
+            users.username,
+            predictions.subject,
+            predictions.body,
+            predictions.prediction,
+            predictions.probability,
+            predictions.timestamp
         FROM predictions
-        ORDER BY timestamp DESC
+        JOIN users ON predictions.user_id = users.id
+        ORDER BY predictions.timestamp DESC
     """)
 
     # Fetch all rows from query result
@@ -77,10 +85,18 @@ def get_user_predictions(user_id):
 
     # Get only predictions submitted by this user
     cursor.execute("""
-        SELECT id, user_id, subject, body, prediction, probability, timestamp
+        SELECT 
+            predictions.id,
+            users.username,
+            predictions.subject,
+            predictions.body,
+            predictions.prediction,
+            predictions.probability,
+            predictions.timestamp
         FROM predictions
-        WHERE user_id = ?
-        ORDER BY timestamp DESC
+        JOIN users ON predictions.user_id = users.id
+        WHERE predictions.user_id = ?
+        ORDER BY predictions.timestamp DESC
     """, (user_id,))
 
     rows = cursor.fetchall()
