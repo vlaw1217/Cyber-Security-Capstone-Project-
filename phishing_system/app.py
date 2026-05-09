@@ -423,6 +423,64 @@ def admin_delete_user(user_id):
 
 
 # ---------------------------
+# VIEW PREDICTION DETAILS
+# ---------------------------
+@app.route("/prediction/<int:prediction_id>")
+def prediction_detail(prediction_id):
+    # Restrict access to logged-in users only.
+    if "user_id" not in session:
+        return redirect("/")
+
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    # Admin users can view any prediction record.
+    if session.get("role") == "admin":
+        cursor.execute("""
+            SELECT
+                predictions.id,
+                users.username,
+                predictions.subject,
+                predictions.body,
+                predictions.prediction,
+                predictions.probability,
+                predictions.timestamp
+            FROM predictions
+            JOIN users ON predictions.user_id = users.id
+            WHERE predictions.id = ?
+        """, (prediction_id,))
+
+    # Regular users can only view their own prediction records.
+    else:
+        cursor.execute("""
+            SELECT
+                predictions.id,
+                users.username,
+                predictions.subject,
+                predictions.body,
+                predictions.prediction,
+                predictions.probability,
+                predictions.timestamp
+            FROM predictions
+            JOIN users ON predictions.user_id = users.id
+            WHERE predictions.id = ?
+            AND predictions.user_id = ?
+        """, (prediction_id, session["user_id"]))
+
+    prediction = cursor.fetchone()
+    conn.close()
+
+    if prediction is None:
+        return """
+        <h2 style="color:red;">Access Denied or Record Not Found</h2>
+        <p>You do not have permission to view this prediction record.</p>
+        <a href="/dashboard">Back to Dashboard</a>
+        """
+
+    return render_template("prediction_detail.html", prediction=prediction)
+
+
+# ---------------------------
 # LOGOUT
 # ---------------------------
 @app.route("/logout")

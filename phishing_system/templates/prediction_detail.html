@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Prediction Details</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 40px;
+        }
+
+        h1 {
+            color: #2c3e50;
+        }
+
+        .detail-container {
+            background-color: white;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+            max-width: 900px;
+        }
+
+        .detail-row {
+            margin-bottom: 18px;
+        }
+
+        .label {
+            font-weight: bold;
+            color: #34495e;
+        }
+
+        .email-body {
+            white-space: pre-wrap;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 8px;
+        }
+
+        .prediction-phishing {
+            color: red;
+            font-weight: bold;
+        }
+
+        .prediction-suspicious {
+            color: orange;
+            font-weight: bold;
+        }
+
+        .prediction-legitimate {
+            color: green;
+            font-weight: bold;
+        }
+
+        a {
+            display: inline-block;
+            margin-top: 20px;
+            text-decoration: none;
+            color: white;
+            background-color: #3498db;
+            padding: 10px 18px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        a:hover {
+            background-color: #2980b9;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Prediction Details</h1>
+
+    <div class="detail-container">
+
+        <div class="detail-row">
+            <span class="label">Prediction ID:</span>
+            {{ prediction[0] }}
+        </div>
+
+        <div class="detail-row">
+            <span class="label">Submitted By:</span>
+            {{ prediction[1] }}
+        </div>
+
+        <div class="detail-row">
+            <span class="label">Subject:</span>
+            {{ prediction[2] }}
+        </div>
+
+        <div class="detail-row">
+            <span class="label">Email Body:</span>
+            <div class="email-body">{{ prediction[3] }}</div>
+        </div>
+
+        <div class="detail-row">
+            <span class="label">Prediction:</span>
+
+            {% if prediction[4]|lower == "phishing" %}
+                <span class="prediction-phishing">{{ prediction[4] }}</span>
+            {% elif prediction[4]|lower == "suspicious" %}
+                <span class="prediction-suspicious">{{ prediction[4] }}</span>
+            {% else %}
+                <span class="prediction-legitimate">{{ prediction[4] }}</span>
+            {% endif %}
+        </div>
+
+        <div class="detail-row">
+            <span class="label">Phishing Probability:</span>
+            {{ "%.4f"|format(prediction[5]) }}
+        </div>
+
+        <div class="detail-row">
+            <span class="label">Submitted Time:</span>
+            {{ prediction[6] }}
+        </div>
+
+        <a href="/dashboard">Back to Dashboard</a>
+
+    </div>
+
+</body>
+</html>

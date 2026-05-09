@@ -176,6 +176,19 @@
         .subject-cell {
             text-align: left;
         }
+
+        .details-button {
+            background-color: #3498db;
+            color: white;
+            padding: 8px 14px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .details-button:hover {
+            background-color: #2980b9;
+        }
     </style>
 </head> 
 
@@ -347,6 +360,7 @@
             <th>Prediction</th>
             <th>Probability</th>
             <th>Time</th>
+            <th>Details</th>
         </tr>
 
         {% for row in data %}
@@ -367,6 +381,7 @@
 
             <td>{{ "%.4f"|format(row[5]) }}</td>
             <td>{{ row[6] }}</td>
+            <td><a class="details-button" href="/prediction/{{ row[0] }}">View Details</a></td>
         </tr>
         {% endfor %}
     </table>
