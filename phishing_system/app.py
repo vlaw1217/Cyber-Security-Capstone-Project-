@@ -276,12 +276,38 @@ def dashboard():
     # If no user_id exists in the session, redirect back to the login page.
     if "user_id" not in session:
         return redirect("/")
+    
+    # Get selected prediction filter from URL query string.
+    # Example: /dashboard?prediction_filter=Phishing
+    prediction_filter = request.args.get("prediction_filter", "All")
 
     # Admin users can view all prediction records from every user.
     # Admin users also retrieve the full user list for user-management features.
     if session.get("role") == "admin":
-        data = get_all_predictions()
         dashboard_title = "Admin Dashboard"
+
+         # Admin can filter all prediction records by prediction type.
+        if prediction_filter in ["Phishing", "Suspicious", "Legitimate"]:
+            conn = sqlite3.connect("app.db")
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    predictions.id,
+                    users.username,
+                    predictions.subject,
+                    predictions.body,
+                    predictions.prediction,
+                    predictions.probability,
+                    predictions.timestamp
+                FROM predictions
+                JOIN users ON predictions.user_id = users.id
+                WHERE predictions.prediction = ?
+                ORDER BY predictions.timestamp DESC
+            """, (prediction_filter,))
+            data = cursor.fetchall()
+            conn.close()
+        else:
+            data = get_all_predictions()
 
         # Retrieve all registered users so the admin can manage accounts.
         # is_blocked is used to show whether each account is active or blocked.
@@ -294,8 +320,32 @@ def dashboard():
     # Regular users can only view their own prediction history.
     # users is set to an empty list because user management is admin-only.
     else:
-        data = get_user_predictions(session["user_id"])
         dashboard_title = "User Dashboard"
+        
+        # Regular users can filter only their own prediction records.
+        if prediction_filter in ["Phishing", "Suspicious", "Legitimate"]:
+            conn = sqlite3.connect("app.db")
+            cursor = conn.cursor()
+            cursor.execute("""
+                SELECT 
+                    predictions.id,
+                    users.username,
+                    predictions.subject,
+                    predictions.body,
+                    predictions.prediction,
+                    predictions.probability,
+                    predictions.timestamp
+                FROM predictions
+                JOIN users ON predictions.user_id = users.id
+                WHERE predictions.user_id = ?
+                AND predictions.prediction = ?
+                ORDER BY predictions.timestamp DESC
+            """, (session["user_id"], prediction_filter))
+            data = cursor.fetchall()
+            conn.close()
+        else:
+            data = get_user_predictions(session["user_id"])
+
         users = []
 
     # Send prediction data, user list, dashboard title, username, and role to dashboard.html.
@@ -303,6 +353,7 @@ def dashboard():
     "dashboard.html",
     data=data,
     users=users,
+    prediction_filter=prediction_filter,
     dashboard_title=dashboard_title,
     username=session.get("username"),
     role=session.get("role")
@@ -349,7 +400,7 @@ def admin_add_user():
         """
 
     conn.close()
-    return redirect("/dashboard")
+    return redirect("/dashboard#user-management")
 
 
 # ---------------------------
@@ -393,7 +444,7 @@ def admin_unblock_user(user_id):
     conn.commit()
     conn.close()
 
-    return redirect("/dashboard")
+    return redirect("/dashboard#user-management")
 
 
 # ---------------------------
@@ -419,7 +470,7 @@ def admin_delete_user(user_id):
     conn.commit()
     conn.close()
 
-    return redirect("/dashboard")
+    return redirect("/dashboard#user-management")
 
 
 # ---------------------------

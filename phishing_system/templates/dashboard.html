@@ -189,6 +189,27 @@
         .details-button:hover {
             background-color: #2980b9;
         }
+
+        .filter-form {
+            background-color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .filter-form select {
+            padding: 8px;
+            margin-left: 10px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .filter-form button {
+            padding: 8px 14px;
+        }
     </style>
 </head> 
 
@@ -266,7 +287,7 @@
     </p>
 {% endif %}
 
-<div class="user-management">
+<div class="user-management" id="user-management">
     <h2>User Management</h2>
 
     <div class="add-user-box">
@@ -349,7 +370,20 @@
 
 {% endif %}
     
-    <h2>Prediction History</h2>
+    <h2 id="prediction-history">Prediction History</h2>
+
+    <form method="GET" action="/dashboard#prediction-history" class="filter-form">
+        <label for="prediction_filter"><strong>Filter by Prediction Type:</strong></label>
+
+        <select name="prediction_filter" id="prediction_filter">
+            <option value="All" {% if prediction_filter == "All" %}selected{% endif %}>All</option>
+            <option value="Phishing" {% if prediction_filter == "Phishing" %}selected{% endif %}>Phishing</option>
+            <option value="Suspicious" {% if prediction_filter == "Suspicious" %}selected{% endif %}>Suspicious</option>
+            <option value="Legitimate" {% if prediction_filter == "Legitimate" %}selected{% endif %}>Legitimate</option>
+        </select>
+
+        <button type="submit">Apply Filter</button>
+    </form>
 
     {% if data %}
     <table>
