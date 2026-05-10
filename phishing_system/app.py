@@ -633,6 +633,66 @@ def admin_delete_user(user_id):
 
 
 # ---------------------------
+# ADMIN: CHANGE USER ROLE
+# ---------------------------
+@app.route("/admin/change_role/<int:user_id>", methods=["POST"])
+@admin_required
+def admin_change_role(user_id):
+    # Prevent the current admin from changing their own role.
+    # This avoids accidentally removing their own admin access.
+    if user_id == session["user_id"]:
+        return """
+        <h2 style="color:red;">Action Not Allowed</h2>
+        <p>You cannot change your own admin role.</p>
+        <a href="/dashboard#user-management">Back to Dashboard</a>
+        """
+
+    # Get the new role from the submitted form.
+    new_role = request.form["new_role"].strip()
+
+    # Only allow valid role values.
+    if new_role not in ["user", "admin"]:
+        return """
+        <h2 style="color:red;">Invalid Role</h2>
+        <p>The selected role is not valid.</p>
+        <a href="/dashboard#user-management">Back to Dashboard</a>
+        """
+
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    # Get the target user's current username and role before updating.
+    # This information will be used for the admin activity log.
+    cursor.execute("SELECT username, role FROM users WHERE id = ?", (user_id,))
+    target_user = cursor.fetchone()
+
+    if target_user is None:
+        conn.close()
+        return """
+        <h2 style="color:red;">User Not Found</h2>
+        <p>The selected user does not exist.</p>
+        <a href="/dashboard#user-management">Back to Dashboard</a>
+        """
+
+    old_role = target_user[1]
+
+    # Update the selected user's role.
+    cursor.execute("UPDATE users SET role = ? WHERE id = ?", (new_role, user_id))
+
+    conn.commit()
+    conn.close()
+
+    # Record this action in the admin activity log.
+    log_admin_action(
+        action=f"Changed role from {old_role} to {new_role}",
+        target_user_id=user_id,
+        target_username=target_user[0]
+    )
+
+    return redirect("/dashboard#user-management")
+
+
+# ---------------------------
 # VIEW PREDICTION DETAILS
 # ---------------------------
 @app.route("/prediction/<int:prediction_id>")
