@@ -37,6 +37,60 @@ def ensure_is_blocked_column():
 
 
 # ---------------------------
+# ADMIN ACTIVITY LOG TABLE
+# ---------------------------
+# Create admin_logs table if it does not already exist.
+# This table records important admin actions for accountability.
+def ensure_admin_logs_table():
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS admin_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            admin_id INTEGER,
+            admin_username TEXT,
+            action TEXT,
+            target_user_id INTEGER,
+            target_username TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+# ---------------------------
+# ADMIN ACTIVITY LOGGER
+# ---------------------------
+# Insert an admin action into the admin_logs table.
+def log_admin_action(action, target_user_id=None, target_username=None):
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO admin_logs (
+            admin_id,
+            admin_username,
+            action,
+            target_user_id,
+            target_username
+        )
+        VALUES (?, ?, ?, ?, ?)
+    """, (
+        session.get("user_id"),
+        session.get("username"),
+        action,
+        target_user_id,
+        target_username
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+# ---------------------------
 # ADMIN ACCESS CONTROL
 # ---------------------------
 # This decorator protects admin-only routes.
@@ -339,6 +393,25 @@ def dashboard():
         """)
         high_risk_scans = cursor.fetchall()
         conn.close()
+
+        # Retrieve the latest admin activity logs.
+        # This shows recent admin actions such as adding, blocking, unblocking, or deleting users.
+        # LIMIT 10 keeps the dashboard readable by showing only the latest 10 actions.
+        conn = sqlite3.connect("app.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT
+                id,
+                admin_username,
+                action,
+                target_username,
+                timestamp
+            FROM admin_logs
+            ORDER BY timestamp DESC
+            LIMIT 10
+        """)
+        admin_logs = cursor.fetchall()
+        conn.close()
     
     # Regular users can only view their own prediction history.
     # users is set to an empty list because user management is admin-only.
@@ -371,6 +444,7 @@ def dashboard():
 
         users = []
         high_risk_scans = []
+        admin_logs = []
 
     # Send prediction data, user list, dashboard title, username, and role to dashboard.html.
     return render_template(
@@ -378,6 +452,7 @@ def dashboard():
     data=data,
     users=users,
     high_risk_scans=high_risk_scans,
+    admin_logs=admin_logs,
     prediction_filter=prediction_filter,
     dashboard_title=dashboard_title,
     username=session.get("username"),
@@ -408,13 +483,29 @@ def admin_add_user():
     cursor = conn.cursor()
 
     try:
-        # Create a new active account.
-        # is_blocked = 0 means the account is active.
+        # Insert the new user account into the users table.
+        # The password is already hashed, and is_blocked = 0 means the account is active.
         cursor.execute(
             "INSERT INTO users (username, password, role, is_blocked) VALUES (?, ?, ?, ?)",
             (username, hashed_password, role, 0)
         )
+
+        # Store the new user's database ID.
+        # This ID will be saved in the admin activity log.
+        new_user_id = cursor.lastrowid
+
         conn.commit()
+        conn.close()
+
+        # Record this action in the admin activity log.
+        # This helps show which admin created which account.
+        log_admin_action(
+            action=f"Added new {role} account",
+            target_user_id=new_user_id,
+            target_username=username
+        )
+
+        return redirect("/dashboard#user-management")
 
     except sqlite3.IntegrityError:
         conn.close()
@@ -424,9 +515,6 @@ def admin_add_user():
         <a href="/dashboard">Back to Dashboard</a>
         """
 
-    conn.close()
-    return redirect("/dashboard#user-management")
-
 
 # ---------------------------
 # ADMIN: BLOCK USER
@@ -435,6 +523,7 @@ def admin_add_user():
 @admin_required
 def admin_block_user(user_id):
     # Prevent the current admin from blocking their own account.
+    # This avoids accidentally locking the administrator out of the system.
     if user_id == session["user_id"]:
         return """
         <h2 style="color:red;">Action Not Allowed</h2>
@@ -445,13 +534,28 @@ def admin_block_user(user_id):
     conn = sqlite3.connect("app.db")
     cursor = conn.cursor()
 
+    # Get the target user's username before blocking the account.
+    # This username will be saved in the admin activity log.
+    cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+    target_user = cursor.fetchone()
+
+    # Block the selected user account.
     # is_blocked = 1 means the user cannot log in.
     cursor.execute("UPDATE users SET is_blocked = 1 WHERE id = ?", (user_id,))
 
     conn.commit()
     conn.close()
 
-    return redirect("/dashboard")
+    # Record this action in the admin activity log.
+    # This helps show which admin blocked which user.
+    if target_user:
+        log_admin_action(
+            action="Blocked user account",
+            target_user_id=user_id,
+            target_username=target_user[0]
+        )
+
+    return redirect("/dashboard#user-management")
 
 
 # ---------------------------
@@ -463,11 +567,26 @@ def admin_unblock_user(user_id):
     conn = sqlite3.connect("app.db")
     cursor = conn.cursor()
 
-    # is_blocked = 0 means the user account is active again.
+    # Get the target user's username before updating the account.
+    # This username will be stored in the admin activity log.
+    cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+    target_user = cursor.fetchone()
+
+    # Unblock the selected user account.
+    # is_blocked = 0 means the user can log in again.
     cursor.execute("UPDATE users SET is_blocked = 0 WHERE id = ?", (user_id,))
 
     conn.commit()
     conn.close()
+
+    # Record this action in the admin activity log.
+    # This helps show which admin unblocked which user.
+    if target_user:
+        log_admin_action(
+            action="Unblocked user account",
+            target_user_id=user_id,
+            target_username=target_user[0]
+        )
 
     return redirect("/dashboard#user-management")
 
@@ -479,6 +598,7 @@ def admin_unblock_user(user_id):
 @admin_required
 def admin_delete_user(user_id):
     # Prevent the current admin from deleting their own account.
+    # This avoids accidentally locking the administrator out of the system.
     if user_id == session["user_id"]:
         return """
         <h2 style="color:red;">Action Not Allowed</h2>
@@ -489,11 +609,25 @@ def admin_delete_user(user_id):
     conn = sqlite3.connect("app.db")
     cursor = conn.cursor()
 
-    # Delete the selected user account.
+    # Get the target user's username before deleting the account.
+    # After deletion, the user record will no longer exist in the users table.
+    cursor.execute("SELECT username FROM users WHERE id = ?", (user_id,))
+    target_user = cursor.fetchone()
+
+    # Delete the selected user account from the users table.
     cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
 
     conn.commit()
     conn.close()
+
+    # Record this action in the admin activity log after deletion.
+    # The username is stored as text so the log stays readable even after the account is removed.
+    if target_user:
+        log_admin_action(
+            action="Deleted user account",
+            target_user_id=user_id,
+            target_username=target_user[0]
+        )
 
     return redirect("/dashboard#user-management")
 
@@ -573,6 +707,9 @@ def logout():
 if __name__ == "__main__":
     # Ensure database has the required admin-management column before running the app.
     ensure_is_blocked_column()
+
+    # Ensure admin activity log table exists before running the app.
+    ensure_admin_logs_table()
 
     # Debug mode ON for development
     app.run(debug=True)
