@@ -129,7 +129,7 @@ def predict():
     prob = model.predict_proba(X_final)[0]
 
     # 8. Label logic
-    if prob[1] > 0.8:
+    if prob[1] > 0.7:
         label = "Phishing"
     elif prob[1] > 0.5:
         label = "Suspicious"
@@ -316,6 +316,29 @@ def dashboard():
         cursor.execute("SELECT id, username, role, is_blocked FROM users ORDER BY id")
         users = cursor.fetchall()
         conn.close()
+
+        # Retrieve high-risk scans for admin review.
+        # High-risk means the email was classified as Phishing
+        # or the phishing probability is 0.80 or higher.
+        conn = sqlite3.connect("app.db")
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT 
+                predictions.id,
+                users.username,
+                predictions.subject,
+                predictions.prediction,
+                predictions.probability,
+                predictions.timestamp
+            FROM predictions
+            JOIN users ON predictions.user_id = users.id
+            WHERE (predictions.prediction = 'Phishing'
+            OR predictions.probability >= 0.80)
+            ORDER BY predictions.probability DESC, predictions.timestamp DESC
+            LIMIT 5
+        """)
+        high_risk_scans = cursor.fetchall()
+        conn.close()
     
     # Regular users can only view their own prediction history.
     # users is set to an empty list because user management is admin-only.
@@ -347,12 +370,14 @@ def dashboard():
             data = get_user_predictions(session["user_id"])
 
         users = []
+        high_risk_scans = []
 
     # Send prediction data, user list, dashboard title, username, and role to dashboard.html.
     return render_template(
     "dashboard.html",
     data=data,
     users=users,
+    high_risk_scans=high_risk_scans,
     prediction_filter=prediction_filter,
     dashboard_title=dashboard_title,
     username=session.get("username"),

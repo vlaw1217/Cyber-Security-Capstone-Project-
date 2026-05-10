@@ -178,6 +178,7 @@
         }
 
         .details-button {
+            display: inline-block;
             background-color: #3498db;
             color: white;
             padding: 8px 14px;
@@ -209,6 +210,36 @@
 
         .filter-form button {
             padding: 8px 14px;
+        }
+
+        .high-risk-section {
+            margin-top: 30px;
+        }
+
+        .high-risk-card {
+            background-color: white;
+            border-left: 6px solid red;
+            padding: 15px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .high-risk-card p {
+            margin: 8px 0;
+        }
+
+        .high-risk-label {
+            color: red;
+            font-weight: bold;
+        }
+
+        .high-risk-probability {
+            font-weight: bold;
+        }
+
+        .high-risk-actions {
+            margin-top: 24px;
         }
     </style>
 </head> 
@@ -286,6 +317,50 @@
         <b>{{ suspicious }}</b> suspicious emails require a manual user review.
     </p>
 {% endif %}
+
+<div class="high-risk-section" id="high-risk-scans">
+    <h2>High-Risk Scans</h2>
+
+    {% if high_risk_scans %}
+        {% for scan in high_risk_scans %}
+        <div class="high-risk-card">
+            <p>
+                <span class="high-risk-label">High Risk:</span>
+                {{ scan[2] }}
+            </p>
+
+            <p>
+                <strong>Submitted By:</strong> {{ scan[1] }}
+            </p>
+
+            <p>
+                <strong>Prediction:</strong>
+                {% if scan[3]|lower == "phishing" %}
+                    <span style="color:red;"><b>{{ scan[3] }}</b></span>
+                {% elif scan[3]|lower == "suspicious" %}
+                    <span style="color:orange;"><b>{{ scan[3] }}</b></span>
+                {% else %}
+                    <span style="color:green;"><b>{{ scan[3] }}</b></span>
+                {% endif %}
+            </p>
+
+            <p>
+                <strong>Probability:</strong>
+                <span class="high-risk-probability">{{ "%.4f"|format(scan[4]) }}</span>
+            </p>
+
+            <p>
+                <strong>Time:</strong> {{ scan[5] }}
+            </p>
+            <div class="high-risk-actions">
+                <a class="details-button" href="/prediction/{{ scan[0] }}">View Details</a>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p style="color:green;">No high-risk scans detected.</p>
+    {% endif %}
+</div>
 
 <div class="user-management" id="user-management">
     <h2>User Management</h2>
