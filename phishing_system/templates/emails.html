@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Connected Emails</title>
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f6f8;
+            margin: 40px;
+        }
+
+        h1 {
+            color: #2c3e50;
+        }
+
+        .top-buttons {
+            margin-bottom: 25px;
+        }
+
+        .button-link {
+            text-decoration: none;
+        }
+
+        .button-link button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .button-link button:hover {
+            background-color: #2980b9;
+        }
+
+        .email-card {
+            background-color: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+        }
+
+        .email-subject {
+            color: #2c3e50;
+            margin-top: 0;
+        }
+
+        .email-meta {
+            color: #555;
+            margin-bottom: 12px;
+        }
+
+        .email-preview {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 12px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            margin-bottom: 15px;
+        }
+
+        .analyze-button {
+            background-color: #27ae60;
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .analyze-button:hover {
+            background-color: #1f8c4d;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+    <h1>Recent Outlook Emails</h1>
+
+    <div class="top-buttons">
+
+        <a href="/dashboard" class="button-link">
+            <button type="button">Back to Dashboard</button>
+        </a>
+
+        <a href="/disconnect_outlook" class="button-link">
+            <button type="button">Disconnect Outlook</button>
+        </a>
+
+    </div>
+
+    {% if messages %}
+
+        {% for email in messages %}
+
+            <div class="email-card">
+
+                <h3 class="email-subject">
+                    {{ email.subject or "No Subject" }}
+                </h3>
+
+                <div class="email-meta">
+                    <strong>From:</strong>
+                    {{ email.from.emailAddress.address }}
+                </div>
+
+                <div class="email-preview">
+                    {{ email.bodyPreview or "No preview available." }}
+                </div>
+
+                <form action="/predict" method="POST">
+
+                    <input type="hidden" name="subject" value="{{ email.subject }}">
+                    <input type="hidden" name="body" value="{{ email.body.content }}">
+                    <input type="hidden" name="source" value="emails">
+
+                    <button type="submit" class="analyze-button">
+                        Analyze This Email
+                    </button>
+
+                </form>
+
+            </div>
+
+        {% endfor %}
+
+    {% else %}
+
+        <p>No Outlook emails found.</p>
+
+    {% endif %}
+
+</body>
+</html>

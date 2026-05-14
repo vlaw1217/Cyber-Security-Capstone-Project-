@@ -1,11 +1,47 @@
 import joblib
 import sqlite3
 import numpy as np
+import os
+import msal
+import requests
+import re
+import html
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, session
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from scipy.sparse import hstack, csr_matrix
 from database import get_all_predictions, get_user_predictions
+
+# ---------------------------
+# MICROSOFT GRAPH CONFIGURATION
+# ---------------------------
+# Load Microsoft Graph / Entra credentials from the .env file.
+# These values are used for OAuth authentication and Graph API access.
+load_dotenv()
+
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+TENANT_ID = os.getenv("TENANT_ID", "common")
+AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
+REDIRECT_URI = os.getenv("REDIRECT_URI")
+
+SCOPES = ["User.Read", "Mail.Read"]
+
+# ---------------------------
+# BUILD MSAL APPLICATION
+# ---------------------------
+# Create the Microsoft Authentication Library (MSAL) application object.
+# This object is responsible for:
+# - generating Microsoft login URLs
+# - handling OAuth authentication
+# - acquiring Graph API access tokens
+def build_msal_app():
+    return msal.ConfidentialClientApplication(
+        CLIENT_ID,
+        authority=AUTHORITY,
+        client_credential=CLIENT_SECRET
+    )
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -113,6 +149,33 @@ def admin_required(f):
 
 
 # ---------------------------
+# EMAIL BODY CLEANER
+# ---------------------------
+# Microsoft Graph returns full email bodies in HTML format.
+# This function removes HTML tags and converts HTML entities
+# so the model and UI receive readable text.
+def clean_email_body(raw_body):
+
+    # Handle empty email bodies safely.
+    if not raw_body:
+        return ""
+
+    # Convert HTML entities into normal characters.
+    # Example: &nbsp; becomes a regular space.
+    clean_text = html.unescape(raw_body)
+
+    # Remove HTML tags.
+    clean_text = re.sub(r"<[^>]+>", " ", clean_text)
+
+    # Replace non-breaking spaces with normal spaces.
+    clean_text = clean_text.replace("\xa0", " ")
+
+    # Remove extra spaces, tabs, and line breaks.
+    clean_text = re.sub(r"\s+", " ", clean_text).strip()
+
+    return clean_text
+
+# ---------------------------
 # HOME ROUTE
 # ---------------------------
 @app.route("/")
@@ -131,7 +194,11 @@ def predict():
 
     # 1. Retrieve user input from form
     subject = request.form["subject"]
-    body = request.form["body"]
+    # Retrieve and clean the email body text.
+    # Outlook emails may contain raw HTML content,
+    # so the body is cleaned before analysis.
+    body = clean_email_body(request.form["body"])    
+    source = request.form.get("source", "dashboard") # Used for back button after prediction is complete
 
     # 2. Combine subject and body, then normalize text
     text = (subject + " " + body).lower().strip()
@@ -164,6 +231,34 @@ def predict():
         1 for w in (subject + " " + body).split() if w.isupper()
     )                                                 # Count of uppercase words
     digit_count = sum(c.isdigit() for c in text)      # Count of digits
+
+
+    # ---------------------------
+    # MODEL INPUT DEBUGGING
+    # ---------------------------
+    # Temporary debugging output used to inspect exactly
+    # what information is being fed into the phishing model.
+
+    print("\n================ MODEL INPUT DEBUG ================\n")
+
+    print("SUBJECT:")
+    print(subject)
+
+    print("\nCLEANED EMAIL BODY:")
+    print(body[:3000])  # Limit output length for readability
+
+    print("\nCOMBINED TEXT FED TO TF-IDF:")
+    print(text[:3000])
+
+    print("\nMETADATA FEATURES:")
+    print(f"Subject Length: {subject_length}")
+    print(f"Body Length: {body_length}")
+    print(f"URL Count: {url_count}")
+    print(f"Phishing Keyword Count: {phishing_keyword_count}")
+    print(f"Uppercase Word Count: {uppercase_count}")
+    print(f"Digit Count: {digit_count}")
+
+    print("\n===================================================\n")
 
     # 6. Combine metadata into array
     meta_features = csr_matrix([[
@@ -208,21 +303,12 @@ def predict():
         float(prob[1])
     ))
 
+    prediction_id = cursor.lastrowid
+
     conn.commit()
     conn.close()
 
-    # 11. Return result to user (simple HTML response)
-    return f"""
-    <h2>Result</h2>
-    <p style="color:{color}; font-size:20px;">
-    <b>{label}</b>
-    </p>
-
-    Phishing Probability: {prob[1]:.4f}<br>
-    Legitimate Probability: {prob[0]:.4f}<br>
-
-    <br><a href="/dashboard">Back</a>
-    """
+    return redirect(f"/prediction/{prediction_id}?source={source}")
 
 
 # ---------------------------
@@ -446,6 +532,7 @@ def dashboard():
         high_risk_scans = []
         admin_logs = []
 
+    graph_connected = "graph_token" in session
     # Send prediction data, user list, dashboard title, username, and role to dashboard.html.
     return render_template(
     "dashboard.html",
@@ -456,8 +543,141 @@ def dashboard():
     prediction_filter=prediction_filter,
     dashboard_title=dashboard_title,
     username=session.get("username"),
-    role=session.get("role")
+    role=session.get("role"),
+    graph_connected=graph_connected,
+    graph_email=session.get("graph_email")
 )
+
+# ---------------------------
+# CONNECT OUTLOOK ACCOUNT
+# ---------------------------
+# Redirect the user to Microsoft's login page.
+# After successful authentication, Microsoft redirects back
+# to the /getAToken route with an authorization code.
+@app.route("/connect_outlook")
+def connect_outlook():
+
+    # Ensure user is logged into local Flask app first
+    if "user_id" not in session:
+        return redirect("/")
+
+    # Generate Microsoft OAuth login URL
+    auth_url = build_msal_app().get_authorization_request_url(
+        SCOPES,
+        redirect_uri=REDIRECT_URI
+    )
+
+    # Redirect user to Microsoft login page
+    return redirect(auth_url)
+
+
+# ---------------------------
+# MICROSOFT AUTH CALLBACK
+# ---------------------------
+# Microsoft redirects the user here after login.
+# This route exchanges the authorization code for
+# a Microsoft Graph access token.
+@app.route("/getAToken")
+def get_token():
+
+    # Ensure user is logged into local Flask app
+    if "user_id" not in session:
+        return redirect("/")
+
+    # Retrieve authorization code from Microsoft
+    code = request.args.get("code")
+
+    # Handle failed or cancelled login
+    if not code:
+        return "Microsoft login failed or was cancelled."
+
+    # Exchange authorization code for access token
+    result = build_msal_app().acquire_token_by_authorization_code(
+        code,
+        scopes=SCOPES,
+        redirect_uri=REDIRECT_URI
+    )
+
+    # Save access token into Flask session
+    if "access_token" in result:
+
+        session["graph_token"] = result["access_token"]
+
+        headers = {
+            "Authorization": "Bearer " + session["graph_token"],
+            "Prefer": 'outlook.body-content-type="text"'
+        }
+
+        profile_response = requests.get(
+            "https://graph.microsoft.com/v1.0/me",
+            headers=headers
+        )
+
+        profile = profile_response.json()
+
+        session["graph_email"] = (
+            profile.get("mail")
+            or profile.get("userPrincipalName")
+            or "Connected account"
+        )
+
+    return redirect("/emails")
+
+
+# ---------------------------
+# LOAD OUTLOOK EMAILS
+# ---------------------------
+# Retrieve recent Outlook emails from Microsoft Graph API.
+# Emails are displayed inside emails.html and can later
+# be analyzed by the phishing detection model.
+@app.route("/emails")
+def emails():
+
+    # Ensure user is logged into local Flask app
+    if "user_id" not in session:
+        return redirect("/")
+
+    # Ensure Microsoft account is connected
+    if "graph_token" not in session:
+        return redirect("/connect_outlook")
+
+    # Microsoft Graph authorization header
+    # The Prefer header requests cleaner plain-text
+    # email body content when available.
+    headers = {
+        "Authorization": "Bearer " + session["graph_token"],
+        "Prefer": 'outlook.body-content-type="text"'
+    }
+
+    # Request recent emails from Microsoft Graph
+    response = requests.get(
+        "https://graph.microsoft.com/v1.0/me/messages?$top=50&$select=subject,bodyPreview,body,from,receivedDateTime",
+        headers=headers
+    )
+
+    # Extract email list from JSON response
+    messages = response.json().get("value", [])
+
+
+
+    # Render email viewer page
+    return render_template(
+        "emails.html",
+        messages=messages
+    )
+
+
+# ---------------------------
+# DISCONNECT OUTLOOK ACCOUNT
+# ---------------------------
+@app.route("/disconnect_outlook")
+def disconnect_outlook():
+
+    # Remove Outlook session data
+    session.pop("graph_token", None)
+    session.pop("graph_email", None)
+
+    return redirect("/dashboard")
 
 
 # ---------------------------
@@ -747,7 +967,13 @@ def prediction_detail(prediction_id):
         <a href="/dashboard">Back to Dashboard</a>
         """
 
-    return render_template("prediction_detail.html", prediction=prediction)
+    source = request.args.get("source", "dashboard")
+
+    return render_template(
+        "prediction_detail.html",
+        prediction=prediction,
+        source=source
+    )
 
 
 # ---------------------------

@@ -274,6 +274,37 @@
 
     <hr>
 
+    <h2>Connect External Email</h2>
+    <p>Connect your Outlook account to load recent emails and analyze them directly.</p>
+
+    {% if graph_connected %}
+
+    <p style="color: green;">
+        Connected Outlook account: {{ graph_email }}
+    </p>
+
+    <a href="/emails">
+        <button type="button">View Outlook Emails</button>
+    </a>
+
+    <a href="/disconnect_outlook">
+        <button type="button">Disconnect Outlook</button>
+    </a>
+
+    {% else %}
+
+        <p style="color: gray;">
+            No Outlook account connected.
+        </p>
+
+        <a href="/connect_outlook">
+            <button type="button">Connect Outlook Email</button>
+        </a>
+
+    {% endif %}
+
+    <hr>
+
     <h2>Check an Email</h2>
     <form action="/predict" method="POST">
         <label>Subject:</label><br>
