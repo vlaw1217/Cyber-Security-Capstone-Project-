@@ -37,6 +37,52 @@ def init_db():
         )
     """)
 
+    # -----------------------------
+    # Create 'attachment_scans' table
+    # -----------------------------
+    # Stores attachment metadata and risk analysis results
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS attachment_scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            -- Links attachment scan to related prediction record
+            prediction_id INTEGER,
+
+            -- Microsoft Graph message ID for the email
+            message_id TEXT,
+
+            -- Original attachment filename, e.g., invoice.pdf
+            filename TEXT,
+
+            -- File extension, e.g., .pdf, .exe, .docm
+            extension TEXT,
+
+            -- MIME type returned by Microsoft Graph
+            mime_type TEXT,
+
+            -- Attachment size in bytes
+            size_bytes INTEGER,
+
+            -- SHA-256 hash of the attachment content
+            sha256_hash TEXT,
+
+            -- Risk level: Low, Medium, or High
+            risk_level TEXT,
+
+            -- Explanation for the risk level
+            risk_reason TEXT,
+
+            -- Optional VirusTotal result
+            virustotal_result TEXT DEFAULT 'Not checked',
+
+            -- Auto timestamp for scan record
+            scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            -- Connect this attachment record to predictions table
+            FOREIGN KEY (prediction_id) REFERENCES predictions(id)
+        )
+    """)
+
     # Save changes and close connection
     conn.commit()
     conn.close()
