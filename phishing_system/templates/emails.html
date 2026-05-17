@@ -65,6 +65,18 @@
             margin-bottom: 15px;
         }
 
+        .attachment-box {
+            background-color: #fff8e1;
+            border: 1px solid #f1c40f;
+            padding: 12px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+
+        .attachment-box ul {
+            margin-bottom: 0;
+        }
+
         .analyze-button {
             background-color: #27ae60;
             color: white;
@@ -117,6 +129,26 @@
                 <div class="email-preview">
                     {{ email.bodyPreview or "No preview available." }}
                 </div>
+
+                {% if email.attachments %}
+                    <div class="attachment-box">
+                        <strong>Attachments:</strong>
+
+                        <ul>
+                            {% for attachment in email.attachments %}
+                                <li>
+                                    <strong>Filename:</strong> {{ attachment.name }} <br>
+                                    <strong>Type:</strong> {{ attachment.content_type }} <br>
+                                    <strong>Size:</strong> {{ attachment.size }} bytes <br>
+                                    <strong>Attachment Type:</strong> {{ attachment.attachment_type }}
+                                    <strong>Inline:</strong> {{ attachment.is_inline }}
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                {% else %}
+                    <p><strong>Attachments:</strong> No attachments found</p>
+                {% endif %}
 
                 <form action="/predict" method="POST">
 

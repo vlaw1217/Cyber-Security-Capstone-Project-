@@ -12,6 +12,7 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from scipy.sparse import hstack, csr_matrix
 from database import get_all_predictions, get_user_predictions
+from graph_attachments import get_email_attachments
 
 # ---------------------------
 # MICROSOFT GRAPH CONFIGURATION
@@ -650,14 +651,33 @@ def emails():
     }
 
     # Request recent emails from Microsoft Graph
+    # Include id and hasAttachments because they are needed for attachment metadata retrieval.
     response = requests.get(
-        "https://graph.microsoft.com/v1.0/me/messages?$top=50&$select=subject,bodyPreview,body,from,receivedDateTime",
+        "https://graph.microsoft.com/v1.0/me/messages?$top=50&$select=id,subject,bodyPreview,body,from,receivedDateTime,hasAttachments",
         headers=headers
     )
 
     # Extract email list from JSON response
     messages = response.json().get("value", [])
 
+     # Extract email list from JSON response
+    messages = response.json().get("value", [])
+
+    # Temporary test for KAN-25:
+    # For each email, use its Microsoft Graph message ID to retrieve attachment metadata.
+    for message in messages:
+        message_id = message.get("id")
+
+        if message_id:
+            attachments = get_email_attachments(session["graph_token"], message_id)
+
+            # Add attachment metadata into the message dictionary.
+            # This allows the data to be used later in emails.html if needed.
+            message["attachments"] = attachments
+
+            # Temporary terminal output for testing.
+            print(f"Attachment metadata retrieved: {len(attachments)} attachment(s)")
+            
 
 
     # Render email viewer page
