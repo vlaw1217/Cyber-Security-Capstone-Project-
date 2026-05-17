@@ -10,7 +10,7 @@ This project is being developed for **INFO49402 Cyber Security Capstone – Spri
 
 The AI-Powered Phishing Detection System is designed to classify emails as phishing or legitimate based on email content and supporting risk indicators. In Phase 1, the project focused on building a proof-of-concept machine learning model using email subject and body text. The system used text preprocessing, TF-IDF feature extraction, supervised machine learning, and a basic Flask web interface for testing phishing predictions.
 
-For Phase 2, the project is being revised and expanded into a more complete cybersecurity prototype. The system will add secure user access, role-based permissions, an administrative dashboard, attempted Microsoft Graph API email integration, and attachment analytics.
+For Phase 2, the project is being revised and expanded into a more complete cybersecurity prototype. The system adds secure user access, role-based permissions, an administrative dashboard, Microsoft Graph API email integration, and attachment metadata analysis.
 
 The goal is to demonstrate an end-to-end phishing analysis workflow from user login to email scanning, phishing classification, attachment risk checking, database storage, and dashboard result display.
 
@@ -22,9 +22,9 @@ The goal is to demonstrate an end-to-end phishing analysis workflow from user lo
 
 The project has moved from the Phase 1 machine learning proof-of-concept into the Phase 2 system implementation stage. The current system includes a Flask-based phishing detection web application with user authentication, role-based access control, prediction history storage, and an administrative dashboard.
 
-Recent Phase 2 work focused on improving the system structure, strengthening access control, and building dashboard features for administrator monitoring. The admin dashboard now supports user management, prediction review, high-risk scan monitoring, filtering by prediction type, detailed scan review, role management, and admin activity logging.
+Recent Phase 2 work focused on improving system structure, strengthening access control, building dashboard features for administrator monitoring, and integrating Microsoft Graph API for Outlook email retrieval. Users can now connect an Outlook account through Microsoft OAuth, retrieve recent Outlook emails, display email content in the system, and submit selected Outlook emails to the phishing detection model.
 
-Upcoming work will continue toward Microsoft Graph API email integration, attachment analytics, expanded testing, and final documentation.
+The system also includes the first stage of attachment analysis. Outlook attachment metadata can now be retrieved through Microsoft Graph API and displayed on the Outlook emails page, including filename, MIME type, file size, attachment type, and inline status. Full rule-based attachment risk scoring, SHA-256 hashing, database storage of attachment analysis results, and optional VirusTotal lookup are planned as next steps.
 
 ---
 
@@ -114,30 +114,47 @@ Completed work:
 
 ### 6. Microsoft Graph API Email Integration
 
-Planned work:
+Completed work:
 
-- Configure Microsoft Entra ID application registration
-- Investigate Microsoft Graph API permissions
-- Attempt OAuth-based email access
-- Retrieve email subject, body, sender, and metadata where possible
-- Send retrieved email content to the phishing detection model
-- Display classification results in the dashboard
+- Configured Microsoft Entra ID application registration for OAuth-based access
+- Added Microsoft OAuth login flow using MSAL
+- Added "Connect Outlook Email" functionality
+- Stored Microsoft Graph access token in the Flask session
+- Retrieved connected Outlook account information
+- Retrieved recent Outlook emails through Microsoft Graph API
+- Displayed Outlook email subject, sender, preview, and body content in the web application
+- Allowed retrieved Outlook emails to be submitted to the phishing detection model
+- Added "Disconnect Outlook" functionality
+- Tested Outlook email retrieval using a connected testing email account
 
-If full Microsoft Graph API access is blocked by permissions, tenant limitations, or account configuration, the system will use a controlled sample email ingestion workflow that follows the same processing structure.
+Current implementation:
+
+- Outlook emails are retrieved from Microsoft Graph using the signed-in user's access token.
+- Retrieved email content can be analyzed by the existing phishing detection model.
+- Microsoft Graph integration is currently used for email retrieval and attachment metadata retrieval.
 
 ### 7. Attachment Analytics
 
-Planned work:
+Partially completed work:
 
-- Detect whether an email includes attachments
-- Extract attachment metadata such as filename, file type, and size
-- Generate file hashes
-- Check suspicious file extensions or patterns
-- Optionally integrate VirusTotal if API access is available
-- Display attachment risk results in the dashboard
-- Store attachment scan metadata in the database
+- Created an `attachment_scans` SQLite table for future attachment scan result storage
+- Added a Microsoft Graph attachment metadata retrieval module
+- Retrieved attachment metadata from Outlook emails
+- Displayed attachment information on the Outlook emails page
+- Displayed filename, MIME type, file size, attachment type, and inline status
+- Verified attachment retrieval using test emails with attachments
 
-The attachment analytics component will not execute, open, or run attachment files. It will focus on metadata, file type, size, hash values, and optional reputation indicators.
+Planned next work:
+
+- Add rule-based attachment risk detection
+- Flag suspicious file extensions such as executable files, scripts, archives, and macro-enabled Office files
+- Calculate SHA-256 hashes for file attachments
+- Save attachment scan results into the `attachment_scans` table
+- Combine email phishing prediction with attachment risk level
+- Display attachment risk results in the scan detail page and admin dashboard
+- Optionally integrate VirusTotal hash reputation lookup if API access is available
+
+The attachment analytics component does not execute, open, or run attachment files. It focuses on safe static analysis using metadata, file type, file size, hash values, and optional reputation indicators.
 
 ---
 
@@ -156,8 +173,9 @@ By the end of Phase 2, the project is expected to include:
 - Prediction filtering and detailed scan review
 - High-risk scan monitoring section
 - Admin activity log for accountability
-- Attempted Microsoft Graph API integration or fallback sample email ingestion workflow
-- Attachment metadata and hash-based risk analysis
+- Functional Microsoft Graph API integration for Outlook email retrieval
+- Outlook email retrieval and submission to the phishing detection model
+- Attachment metadata retrieval completed, with hash-based risk analysis planned as the next enhancement
 - Updated SQLite database structure
 - Clear GitHub README and setup documentation
 - Weekly progress evidence
@@ -195,6 +213,11 @@ By the end of Phase 2, the project is expected to include:
 - View personal prediction history
 - Filter prediction history by prediction type
 - View detailed scan results
+- Connect Outlook account through Microsoft Graph API
+- View recent Outlook emails inside the web application
+- Submit retrieved Outlook emails for phishing analysis
+- Disconnect Outlook account
+- View attachment metadata for Outlook emails
 
 ### Admin Features
 
@@ -220,6 +243,15 @@ By the end of Phase 2, the project is expected to include:
 - Admin self-protection against blocking, deleting, or demoting own account
 - UTC-style timestamps for audit consistency
 
+### Email Integration and Attachment Metadata Features
+
+- Microsoft OAuth-based Outlook connection
+- Microsoft Graph API email retrieval
+- Outlook email display inside the Flask application
+- Attachment metadata retrieval through Microsoft Graph API
+- Attachment filename, MIME type, size, attachment type, and inline status display
+- Safe attachment handling approach that does not execute or open files
+
 ---
 
 ## Repository Structure
@@ -229,6 +261,7 @@ Cyber-Security-Capstone-Project/
 │
 ├── app.py
 ├── database.py
+├── graph_attachments.py
 ├── requirements.txt
 ├── README.md
 ├── .gitignore
@@ -241,6 +274,7 @@ Cyber-Security-Capstone-Project/
 │   ├── login.html
 │   ├── register.html
 │   ├── dashboard.html
+│   ├── emails.html
 │   └── prediction_detail.html
 │
 └── app.db              # Local SQLite database, ignored by Git
