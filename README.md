@@ -24,7 +24,7 @@ The project has moved from the Phase 1 machine learning proof-of-concept into th
 
 Recent Phase 2 work focused on improving system structure, strengthening access control, building dashboard features for administrator monitoring, and integrating Microsoft Graph API for Outlook email retrieval. Users can now connect an Outlook account through Microsoft OAuth, retrieve recent Outlook emails, display email content in the system, and submit selected Outlook emails to the phishing detection model.
 
-The system also includes the first stage of attachment analysis. Outlook attachment metadata can now be retrieved through Microsoft Graph API and displayed on the Outlook emails page, including filename, MIME type, file size, attachment type, and inline status. Full rule-based attachment risk scoring, SHA-256 hashing, database storage of attachment analysis results, and optional VirusTotal lookup are planned as next steps.
+The system also includes an attachment analysis workflow. Outlook attachment metadata can now be retrieved through Microsoft Graph API and displayed on the Outlook emails page, including filename, MIME type, file size, attachment type, and inline status. The system also performs rule-based attachment risk detection, calculates SHA-256 hashes when attachment bytes are available, checks hash reputation through VirusTotal, and saves attachment analysis results into the SQLite `attachment_scans` table after an Outlook email is analyzed. Displaying saved attachment scan results on the Prediction Details page and admin dashboard remains planned as a later enhancement.
 
 ---
 
@@ -135,26 +135,38 @@ Current implementation:
 
 ### 7. Attachment Analytics
 
-Partially completed work:
+Completed work:
 
-- Created an `attachment_scans` SQLite table for future attachment scan result storage
+- Created an `attachment_scans` SQLite table for attachment scan result storage
 - Added a Microsoft Graph attachment metadata retrieval module
 - Retrieved attachment metadata from Outlook emails
 - Displayed attachment information on the Outlook emails page
 - Displayed filename, MIME type, file size, attachment type, and inline status
-- Verified attachment retrieval using test emails with attachments
+- Added rule-based attachment risk detection
+- Flagged suspicious file extensions such as executable files, scripts, archives, macro-enabled Office files, and uncommon binary files
+- Calculated SHA-256 hashes for file attachments when attachment bytes are available
+- Integrated VirusTotal hash reputation lookup using SHA-256 hashes
+- Displayed VirusTotal reputation status and message on the Outlook emails page
+- Saved attachment scan results into the `attachment_scans` SQLite table after an Outlook email is analyzed
+- Stored attachment metadata, SHA-256 hash, risk level, risk reason, VirusTotal result, and scan timestamp
+- Verified attachment retrieval, risk detection, SHA-256 hashing, VirusTotal lookup, and SQLite storage using test Outlook emails with attachments
+
+Current implementation:
+
+- Attachment analysis is performed using safe static analysis.
+- The system does not open, run, or execute attachment files.
+- Attachment bytes are only retrieved when needed for SHA-256 hash calculation.
+- VirusTotal integration checks only the hash value and does not upload attachment files.
+- Attachment scan results are linked to the related prediction record through `prediction_id`.
 
 Planned next work:
 
-- Add rule-based attachment risk detection
-- Flag suspicious file extensions such as executable files, scripts, archives, and macro-enabled Office files
-- Calculate SHA-256 hashes for file attachments
-- Save attachment scan results into the `attachment_scans` table
-- Combine email phishing prediction with attachment risk level
-- Display attachment risk results in the scan detail page and admin dashboard
-- Optionally integrate VirusTotal hash reputation lookup if API access is available
+- Create overall risk calculation logic that combines email prediction risk and attachment risk
+- Display saved attachment scan results on the Prediction Details page
+- Display attachment risk indicators in the admin dashboard
+- Improve presentation of high-risk attachment results for administrator review
 
-The attachment analytics component does not execute, open, or run attachment files. It focuses on safe static analysis using metadata, file type, file size, hash values, and optional reputation indicators.
+The attachment analytics component does not execute, open, or run attachment files. It focuses on safe static analysis using metadata, file type, file size, SHA-256 hash values, database storage, and optional reputation indicators.
 
 ---
 
@@ -175,7 +187,7 @@ By the end of Phase 2, the project is expected to include:
 - Admin activity log for accountability
 - Functional Microsoft Graph API integration for Outlook email retrieval
 - Outlook email retrieval and submission to the phishing detection model
-- Attachment metadata retrieval completed, with hash-based risk analysis planned as the next enhancement
+- Attachment metadata retrieval, rule-based risk detection, SHA-256 hashing, VirusTotal hash lookup, and SQLite storage
 - Updated SQLite database structure
 - Clear GitHub README and setup documentation
 - Weekly progress evidence
@@ -197,7 +209,7 @@ By the end of Phase 2, the project is expected to include:
 | Database | SQLite |
 | Frontend | HTML, CSS, Bootstrap or basic styling |
 | Email Integration | Microsoft Graph API, Microsoft Entra ID, OAuth 2.0 |
-| Attachment Analysis | Python hashing libraries, metadata checks, optional VirusTotal API |
+| Attachment Analysis | Python hashing libraries, rule-based metadata checks, SHA-256 hashing, VirusTotal hash lookup |
 | Version Control | Git, GitHub |
 | Development Environment | VS Code |
 
@@ -218,6 +230,9 @@ By the end of Phase 2, the project is expected to include:
 - Submit retrieved Outlook emails for phishing analysis
 - Disconnect Outlook account
 - View attachment metadata for Outlook emails
+- View rule-based attachment risk level and risk reason
+- View SHA-256 hash values for supported Outlook file attachments
+- View VirusTotal hash reputation results when available
 
 ### Admin Features
 
@@ -243,13 +258,17 @@ By the end of Phase 2, the project is expected to include:
 - Admin self-protection against blocking, deleting, or demoting own account
 - UTC-style timestamps for audit consistency
 
-### Email Integration and Attachment Metadata Features
+- ### Email Integration and Attachment Analysis Features
 
 - Microsoft OAuth-based Outlook connection
 - Microsoft Graph API email retrieval
 - Outlook email display inside the Flask application
 - Attachment metadata retrieval through Microsoft Graph API
 - Attachment filename, MIME type, size, attachment type, and inline status display
+- Rule-based attachment risk detection using extension, MIME type, and file size
+- SHA-256 hash calculation for supported file attachments
+- VirusTotal hash reputation lookup using SHA-256 values
+- SQLite storage of attachment scan results in the `attachment_scans` table
 - Safe attachment handling approach that does not execute or open files
 
 ---
@@ -262,6 +281,8 @@ Cyber-Security-Capstone-Project/
 ├── app.py
 ├── database.py
 ├── graph_attachments.py
+├── attachment_analyzer.py
+├── virustotal_checker.py
 ├── requirements.txt
 ├── README.md
 ├── .gitignore
@@ -281,3 +302,4 @@ Cyber-Security-Capstone-Project/
 ```
 
 > Note: `app.db` is used locally for users, prediction history, blocked account status, and admin activity logs. It is ignored by Git and should not be pushed to GitHub.
+> Note: .env stores local API credentials such as Microsoft Graph and VirusTotal API keys. It must not be pushed to GitHub.
