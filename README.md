@@ -258,7 +258,7 @@ By the end of Phase 2, the project is expected to include:
 - Admin self-protection against blocking, deleting, or demoting own account
 - UTC-style timestamps for audit consistency
 
-- ### Email Integration and Attachment Analysis Features
+### Email Integration and Attachment Analysis Features
 
 - Microsoft OAuth-based Outlook connection
 - Microsoft Graph API email retrieval
@@ -301,5 +301,6 @@ Cyber-Security-Capstone-Project/
 └── app.db              # Local SQLite database, ignored by Git
 ```
 
-> Note: `app.db` is used locally for users, prediction history, blocked account status, and admin activity logs. It is ignored by Git and should not be pushed to GitHub.
-> Note: .env stores local API credentials such as Microsoft Graph and VirusTotal API keys. It must not be pushed to GitHub.
+> Note: `app.db` is used locally for users, prediction history, blocked account status, admin activity logs, and attachment scan result testing. It is ignored by Git and should not be pushed to GitHub.
+
+> Note: `.env` stores local API credentials such as Microsoft Graph and VirusTotal API keys. It must not be pushed to GitHub.
