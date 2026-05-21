@@ -13,6 +13,8 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from scipy.sparse import hstack, csr_matrix
 from database import get_all_predictions, get_user_predictions
 from graph_attachments import get_email_attachments
+from attachment_analyzer import analyze_attachment_metadata
+
 
 # ---------------------------
 # MICROSOFT GRAPH CONFIGURATION
@@ -657,28 +659,46 @@ def emails():
         headers=headers
     )
 
-    # Extract email list from JSON response
+    # Retrieve and analyze attachment metadata for each Outlook email.
     messages = response.json().get("value", [])
 
-     # Extract email list from JSON response
-    messages = response.json().get("value", [])
-
-    # Temporary test for KAN-25:
+    # Temporary test for KAN-25 and KAN-26:
     # For each email, use its Microsoft Graph message ID to retrieve attachment metadata.
     for message in messages:
         message_id = message.get("id")
 
         if message_id:
+            
             attachments = get_email_attachments(session["graph_token"], message_id)
 
-            # Add attachment metadata into the message dictionary.
-            # This allows the data to be used later in emails.html if needed.
+            # Store attachment metadata so it can still be displayed in emails.html.
             message["attachments"] = attachments
 
-            # Temporary terminal output for testing.
-            print(f"Attachment metadata retrieved: {len(attachments)} attachment(s)")
-            
+            # Analyze each attachment using rule-based metadata checks.
+            # This does not open, execute, or download the attachment file.
+            attachment_analysis = []
 
+            for attachment in attachments:
+                result = analyze_attachment_metadata(
+                    filename=attachment.get("name"),
+                    mime_type=attachment.get("content_type"),
+                    size_bytes=attachment.get("size")
+                )
+
+                attachment_analysis.append(result)
+
+            # Store the rule-based analysis result inside the message dictionary.
+            # This allows emails.html to display the risk level and risk reason.
+            message["attachment_analysis"] = attachment_analysis
+
+            # Temporary terminal output for testing.
+            # It only prints the number of attachments and their risk levels,
+            # not the full private email content.
+            risk_summary = [item["risk_level"] for item in attachment_analysis]
+            print(
+                f"Attachment metadata retrieved: {len(attachments)} attachment(s), "
+                f"risk summary: {risk_summary}"
+            )
 
     # Render email viewer page
     return render_template(

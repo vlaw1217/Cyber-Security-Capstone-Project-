@@ -140,12 +140,30 @@
                                     <strong>Filename:</strong> {{ attachment.name }} <br>
                                     <strong>Type:</strong> {{ attachment.content_type }} <br>
                                     <strong>Size:</strong> {{ attachment.size }} bytes <br>
-                                    <strong>Attachment Type:</strong> {{ attachment.attachment_type }}
+                                    <strong>Attachment Type:</strong> {{ attachment.attachment_type }} <br>
                                     <strong>Inline:</strong> {{ attachment.is_inline }}
+
+                                    {% if email.attachment_analysis and email.attachment_analysis|length > loop.index0 %}
+                                        {% set analysis = email.attachment_analysis[loop.index0] %}
+
+                                        <br>
+                                        <strong>Risk Level:</strong>
+                                        {% if analysis.risk_level == "High" %}
+                                            <span style="color: red; font-weight: bold;">{{ analysis.risk_level }}</span>
+                                        {% elif analysis.risk_level == "Medium" %}
+                                            <span style="color: orange; font-weight: bold;">{{ analysis.risk_level }}</span>
+                                        {% else %}
+                                            <span style="color: green; font-weight: bold;">{{ analysis.risk_level }}</span>
+                                        {% endif %}
+
+                                        <br>
+                                        <strong>Risk Reason:</strong> {{ analysis.risk_reason }}
+                                    {% endif %}
                                 </li>
                             {% endfor %}
                         </ul>
                     </div>
+
                 {% else %}
                     <p><strong>Attachments:</strong> No attachments found</p>
                 {% endif %}
