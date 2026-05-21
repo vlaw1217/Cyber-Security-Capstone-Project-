@@ -12,8 +12,8 @@ from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from scipy.sparse import hstack, csr_matrix
 from database import get_all_predictions, get_user_predictions
-from graph_attachments import get_email_attachments
-from attachment_analyzer import analyze_attachment_metadata
+from graph_attachments import get_email_attachments, download_attachment_bytes
+from attachment_analyzer import analyze_attachment_metadata, calculate_sha256
 
 
 # ---------------------------
@@ -662,7 +662,7 @@ def emails():
     # Retrieve and analyze attachment metadata for each Outlook email.
     messages = response.json().get("value", [])
 
-    # Temporary test for KAN-25 and KAN-26:
+    # Retrieve and analyze attachment metadata for each Outlook email.
     # For each email, use its Microsoft Graph message ID to retrieve attachment metadata.
     for message in messages:
         message_id = message.get("id")
@@ -679,11 +679,35 @@ def emails():
             attachment_analysis = []
 
             for attachment in attachments:
+                # Get basic attachment fields returned by Microsoft Graph.
+                attachment_id = attachment.get("attachment_id")
+                attachment_type = attachment.get("attachment_type")
+
+                # Default hash value is None until the file bytes are successfully downloaded.
+                sha256_hash = None
+
+                # Only file attachments should be downloaded for hashing.
+                # Reference/cloud attachments or unsupported attachment types are skipped.
+                if attachment_id and attachment_type == "#microsoft.graph.fileAttachment":
+                    file_bytes = download_attachment_bytes(
+                        session["graph_token"],
+                        message_id,
+                        attachment_id
+                    )
+
+                    # Calculate SHA-256 only from raw bytes.
+                    # The file is not opened, saved, or executed.
+                    sha256_hash = calculate_sha256(file_bytes)
+
+                # Run the existing rule-based metadata risk analysis.
                 result = analyze_attachment_metadata(
                     filename=attachment.get("name"),
                     mime_type=attachment.get("content_type"),
                     size_bytes=attachment.get("size")
                 )
+
+                # Add the SHA-256 hash into the analysis result.
+                result["sha256_hash"] = sha256_hash
 
                 attachment_analysis.append(result)
 

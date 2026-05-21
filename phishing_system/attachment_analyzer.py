@@ -1,4 +1,5 @@
 import os
+import hashlib
 
 
 # ---------------------------------------------------
@@ -95,6 +96,26 @@ def get_file_extension(filename):
     # Example: "invoice.pdf" -> ("invoice", ".pdf")
     return os.path.splitext(filename)[1]
 
+def calculate_sha256(file_bytes):
+    """
+    Calculate the SHA-256 hash of attachment bytes.
+
+    This function does not open, run, or execute the attachment.
+    It only creates a cryptographic fingerprint of the file content.
+
+    Parameters:
+        file_bytes (bytes): Raw attachment bytes.
+
+    Returns:
+        str or None: SHA-256 hash value, or None if bytes are missing.
+    """
+
+    # If there is no file content, return None safely.
+    if not file_bytes:
+        return None
+
+    # Create and return SHA-256 hexadecimal digest.
+    return hashlib.sha256(file_bytes).hexdigest()
 
 def analyze_attachment_metadata(filename, mime_type, size_bytes):
     """

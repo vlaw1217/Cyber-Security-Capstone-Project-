@@ -147,6 +147,14 @@
                                         {% set analysis = email.attachment_analysis[loop.index0] %}
 
                                         <br>
+                                        <strong>SHA-256:</strong>
+                                        {% if analysis.sha256_hash %}
+                                            <span style="font-family: monospace;">{{ analysis.sha256_hash }}</span>
+                                        {% else %}
+                                            Not available
+                                        {% endif %}
+
+                                        <br>
                                         <strong>Risk Level:</strong>
                                         {% if analysis.risk_level == "High" %}
                                             <span style="color: red; font-weight: bold;">{{ analysis.risk_level }}</span>
