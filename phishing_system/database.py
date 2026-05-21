@@ -121,6 +121,7 @@ def get_all_predictions():
     # Return data to Flask app
     return rows
 
+
 # ---------------------------------------------------
 # Retrieve prediction records for one specific user
 # ---------------------------------------------------
@@ -150,6 +151,62 @@ def get_user_predictions(user_id):
     conn.close()
 
     return rows
+
+def save_attachment_scan(
+    prediction_id,
+    message_id,
+    filename,
+    extension,
+    mime_type,
+    size_bytes,
+    sha256_hash,
+    risk_level,
+    risk_reason,
+    virustotal_result
+):
+    """
+    Save one attachment analysis result into the attachment_scans table.
+
+    This function stores only attachment metadata and analysis results.
+    It does not store the actual attachment file content.
+    """
+
+    # Connect to the local SQLite database.
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    # Insert attachment scan result into attachment_scans table.
+    cursor.execute("""
+        INSERT INTO attachment_scans (
+            prediction_id,
+            message_id,
+            filename,
+            extension,
+            mime_type,
+            size_bytes,
+            sha256_hash,
+            risk_level,
+            risk_reason,
+            virustotal_result
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        prediction_id,
+        message_id,
+        filename,
+        extension,
+        mime_type,
+        size_bytes,
+        sha256_hash,
+        risk_level,
+        risk_reason,
+        virustotal_result
+    ))
+
+    # Save changes and close the connection.
+    conn.commit()
+    conn.close()
+
 
 # ---------------------------------------------------
 # Run database initialization when file is executed

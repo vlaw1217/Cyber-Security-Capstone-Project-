@@ -189,6 +189,7 @@
                     <input type="hidden" name="subject" value="{{ email.subject }}">
                     <input type="hidden" name="body" value="{{ email.body.content }}">
                     <input type="hidden" name="source" value="emails">
+                    <input type="hidden" name="message_id" value="{{ email.id }}">
 
                     <button type="submit" class="analyze-button">
                         Analyze This Email

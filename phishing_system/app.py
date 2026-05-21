@@ -11,10 +11,12 @@ from flask import Flask, render_template, request, redirect, session
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from scipy.sparse import hstack, csr_matrix
-from database import get_all_predictions, get_user_predictions
+from database import get_all_predictions, get_user_predictions, save_attachment_scan
 from graph_attachments import get_email_attachments, download_attachment_bytes
 from attachment_analyzer import analyze_attachment_metadata, calculate_sha256
 from virustotal_checker import check_virustotal_hash
+
+
 
 
 # ---------------------------
@@ -204,6 +206,10 @@ def predict():
     body = clean_email_body(request.form["body"])    
     source = request.form.get("source", "dashboard") # Used for back button after prediction is complete
 
+    # Get the Microsoft Graph message ID from the Outlook email form.
+    # This ID is needed to retrieve and save attachment scan results for the selected email.
+    message_id = request.form.get("message_id")
+
     # 2. Combine subject and body, then normalize text
     text = (subject + " " + body).lower().strip()
 
@@ -311,6 +317,80 @@ def predict():
 
     conn.commit()
     conn.close()
+
+    # ---------------------------------------------------
+    # Save attachment analysis results for Outlook emails
+    # ---------------------------------------------------
+    # This runs only when the email came from Microsoft Graph
+    # and a valid message_id is available.
+    if source == "emails" and message_id and "graph_token" in session:
+
+        # Retrieve attachment metadata again using the selected Outlook message ID.
+        attachments = get_email_attachments(session["graph_token"], message_id)
+
+        for attachment in attachments:
+            # Get attachment ID and type from Microsoft Graph metadata.
+            attachment_id = attachment.get("attachment_id")
+            attachment_type = attachment.get("attachment_type")
+
+            # Default SHA-256 hash is None until successfully calculated.
+            sha256_hash = None
+
+            # Download bytes only for Microsoft Graph file attachments.
+            # The file is not opened, saved, or executed.
+            if attachment_id and attachment_type == "#microsoft.graph.fileAttachment":
+                file_bytes = download_attachment_bytes(
+                    session["graph_token"],
+                    message_id,
+                    attachment_id
+                )
+
+                # Calculate SHA-256 hash from raw bytes.
+                sha256_hash = calculate_sha256(file_bytes)
+
+            # Run rule-based attachment metadata analysis.
+            result = analyze_attachment_metadata(
+                filename=attachment.get("name"),
+                mime_type=attachment.get("content_type"),
+                size_bytes=attachment.get("size")
+            )
+
+            # Add SHA-256 hash to the result.
+            result["sha256_hash"] = sha256_hash
+
+            # Check VirusTotal reputation using only the hash.
+            virustotal_result = check_virustotal_hash(sha256_hash)
+
+            # Prepare readable VirusTotal summary for database storage.
+            virustotal_summary = (
+                f"{virustotal_result.get('status')} - "
+                f"{virustotal_result.get('message')}"
+            )
+
+            # If VirusTotal reports malicious detections, upgrade risk to High.
+            if virustotal_result.get("status") == "Malicious":
+                result["risk_level"] = "High"
+                result["risk_reason"] += "; VirusTotal reported malicious detections"
+
+            # If VirusTotal reports suspicious detections and current risk is Low,
+            # upgrade risk to Medium.
+            elif virustotal_result.get("status") == "Suspicious" and result["risk_level"] == "Low":
+                result["risk_level"] = "Medium"
+                result["risk_reason"] += "; VirusTotal reported suspicious detections"
+
+            # Save the attachment scan result into SQLite.
+            save_attachment_scan(
+                prediction_id=prediction_id,
+                message_id=message_id,
+                filename=result.get("filename"),
+                extension=result.get("extension"),
+                mime_type=result.get("mime_type"),
+                size_bytes=result.get("size_bytes"),
+                sha256_hash=result.get("sha256_hash"),
+                risk_level=result.get("risk_level"),
+                risk_reason=result.get("risk_reason"),
+                virustotal_result=virustotal_summary
+            )
 
     return redirect(f"/prediction/{prediction_id}?source={source}")
 
