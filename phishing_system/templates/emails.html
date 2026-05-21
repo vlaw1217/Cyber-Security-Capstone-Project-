@@ -155,6 +155,14 @@
                                         {% endif %}
 
                                         <br>
+                                        <strong>VirusTotal:</strong>
+                                        {% if analysis.virustotal_status %}
+                                            {{ analysis.virustotal_status }} - {{ analysis.virustotal_message }}
+                                        {% else %}
+                                            Not checked
+                                        {% endif %}
+
+                                        <br>
                                         <strong>Risk Level:</strong>
                                         {% if analysis.risk_level == "High" %}
                                             <span style="color: red; font-weight: bold;">{{ analysis.risk_level }}</span>

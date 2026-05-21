@@ -14,6 +14,7 @@ from scipy.sparse import hstack, csr_matrix
 from database import get_all_predictions, get_user_predictions
 from graph_attachments import get_email_attachments, download_attachment_bytes
 from attachment_analyzer import analyze_attachment_metadata, calculate_sha256
+from virustotal_checker import check_virustotal_hash
 
 
 # ---------------------------
@@ -655,9 +656,11 @@ def emails():
     # Request recent emails from Microsoft Graph
     # Include id and hasAttachments because they are needed for attachment metadata retrieval.
     response = requests.get(
-        "https://graph.microsoft.com/v1.0/me/messages?$top=50&$select=id,subject,bodyPreview,body,from,receivedDateTime,hasAttachments",
+        "https://graph.microsoft.com/v1.0/me/messages?$top=10&$select=id,subject,bodyPreview,body,from,receivedDateTime,hasAttachments",
         headers=headers
     )
+    print("Graph email response status:", response.status_code)
+    print("Graph email response:", response.text[:1000])    
 
     # Retrieve and analyze attachment metadata for each Outlook email.
     messages = response.json().get("value", [])
@@ -675,7 +678,8 @@ def emails():
             message["attachments"] = attachments
 
             # Analyze each attachment using rule-based metadata checks.
-            # This does not open, execute, or download the attachment file.
+            # This does not open or execute the attachment file.
+            # File bytes may be downloaded only for SHA-256 hash calculation.
             attachment_analysis = []
 
             for attachment in attachments:
@@ -708,6 +712,27 @@ def emails():
 
                 # Add the SHA-256 hash into the analysis result.
                 result["sha256_hash"] = sha256_hash
+
+                # Check the SHA-256 hash reputation using VirusTotal.
+                # This sends only the hash, not the actual file.
+                virustotal_result = check_virustotal_hash(sha256_hash)
+
+                # Add VirusTotal result into the analysis result.
+                result["virustotal_status"] = virustotal_result.get("status")
+                result["virustotal_message"] = virustotal_result.get("message")
+                result["virustotal_malicious"] = virustotal_result.get("malicious")
+                result["virustotal_suspicious"] = virustotal_result.get("suspicious")
+
+                # If VirusTotal reports malicious detections, increase risk to High.
+                if virustotal_result.get("status") == "Malicious":
+                    result["risk_level"] = "High"
+                    result["risk_reason"] += "; VirusTotal reported malicious detections"
+
+                # If VirusTotal reports suspicious detections and current risk is Low,
+                # increase risk to Medium.
+                elif virustotal_result.get("status") == "Suspicious" and result["risk_level"] == "Low":
+                    result["risk_level"] = "Medium"
+                    result["risk_reason"] += "; VirusTotal reported suspicious detections"
 
                 attachment_analysis.append(result)
 
