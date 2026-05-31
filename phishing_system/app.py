@@ -11,10 +11,11 @@ from flask import Flask, render_template, request, redirect, session
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from scipy.sparse import hstack, csr_matrix
-from database import get_all_predictions, get_user_predictions, save_attachment_scan
+from database import get_all_predictions, get_user_predictions, save_attachment_scan, save_header_scan, get_header_scan
 from graph_attachments import get_email_attachments, download_attachment_bytes
 from attachment_analyzer import analyze_attachment_metadata, calculate_sha256
 from virustotal_checker import check_virustotal_hash
+from header_analyzer import analyze_email_headers
 
 
 
@@ -181,6 +182,59 @@ def clean_email_body(raw_body):
 
     return clean_text
 
+
+# ---------------------------
+# FORMAT EMAIL BODY FOR DISPLAY
+# ---------------------------
+# Converts plain image URLs in the saved email body into visible images.
+# This is only for displaying the email body on prediction_detail.html.
+def format_email_body_for_display(body):
+    if not body:
+        return ""
+
+    # Escape the email body first so unsafe HTML is not rendered.
+    safe_body = html.escape(body)
+
+    # Detect image URLs, including ones inside square brackets.
+    image_url_pattern = r"\[?(https?://[^\s\]]+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s\]]*)?)\]?"
+
+    # Replace image URLs with HTML image tags.
+    formatted_body = re.sub(
+        image_url_pattern,
+        r'<br><img src="\1" alt="Email image" style="max-width:250px; height:auto; margin:10px 0;"><br>',
+        safe_body
+    )
+
+    return formatted_body
+
+# ---------------------------
+# GET OUTLOOK EMAIL HEADERS
+# ---------------------------
+# Retrieve full internet message headers for one Outlook email.
+# These headers are used for sender spoofing analysis.
+def get_outlook_email_headers(graph_token, message_id):
+    if not graph_token or not message_id:
+        return []
+
+    headers = {
+        "Authorization": "Bearer " + graph_token
+    }
+
+    response = requests.get(
+        f"https://graph.microsoft.com/v1.0/me/messages/{message_id}?$select=internetMessageHeaders",
+        headers=headers
+    )
+
+    if response.status_code != 200:
+        print("Header retrieval failed:", response.status_code)
+        print(response.text[:1000])
+        return []
+
+    data = response.json()
+
+    return data.get("internetMessageHeaders", [])
+
+
 # ---------------------------
 # HOME ROUTE
 # ---------------------------
@@ -317,6 +371,38 @@ def predict():
 
     conn.commit()
     conn.close()
+
+    # ---------------------------------------------------
+    # Save email header spoofing analysis for Outlook emails
+    # ---------------------------------------------------
+    # This runs only when the email came from Microsoft Graph
+    # and a valid message_id is available.
+    if source == "emails" and message_id and "graph_token" in session:
+
+        internet_headers = get_outlook_email_headers(
+            session["graph_token"],
+            message_id
+        )
+
+        header_result = analyze_email_headers(internet_headers)
+
+        risk_reason = " | ".join(header_result.get("warnings", []))
+
+        save_header_scan(
+            prediction_id=prediction_id,
+            message_id=message_id,
+            from_domain=header_result.get("from_domain"),
+            return_path_domain=header_result.get("return_path_domain"),
+            reply_to_domain=header_result.get("reply_to_domain"),
+            spf_result=header_result.get("spf_result"),
+            dkim_result=header_result.get("dkim_result"),
+            dmarc_result=header_result.get("dmarc_result"),
+            compauth_result=header_result.get("compauth_result"),
+            dkim_domain=header_result.get("dkim_domain"),
+            risk_score=header_result.get("risk_score"),
+            risk_level=header_result.get("risk_level"),
+            risk_reason=risk_reason
+        )
 
     # ---------------------------------------------------
     # Save attachment analysis results for Outlook emails
@@ -1128,6 +1214,7 @@ def prediction_detail(prediction_id):
 
     prediction = cursor.fetchone()
     conn.close()
+    header_scan = get_header_scan(prediction_id)
 
     if prediction is None:
         return """
@@ -1137,10 +1224,14 @@ def prediction_detail(prediction_id):
         """
 
     source = request.args.get("source", "dashboard")
+    formatted_body = format_email_body_for_display(prediction[3])
+
 
     return render_template(
         "prediction_detail.html",
         prediction=prediction,
+        formatted_body=formatted_body,
+        header_scan=header_scan,
         source=source
     )
 

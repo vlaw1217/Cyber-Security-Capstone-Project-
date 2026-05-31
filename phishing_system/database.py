@@ -83,6 +83,53 @@ def init_db():
         )
     """)
 
+    # -----------------------------
+    # Create 'header_scans' table
+    # -----------------------------
+    # Stores email header spoofing analysis results
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS header_scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            -- Links header scan to related prediction record
+            prediction_id INTEGER,
+
+            -- Microsoft Graph message ID for the email
+            message_id TEXT,
+
+            -- Visible sender domain from the From header
+            from_domain TEXT,
+
+            -- Bounce/envelope sender domain from Return-Path
+            return_path_domain TEXT,
+
+            -- Reply-To domain, if present
+            reply_to_domain TEXT,
+
+            -- SPF, DKIM, DMARC, and Microsoft composite authentication results
+            spf_result TEXT,
+            dkim_result TEXT,
+            dmarc_result TEXT,
+            compauth_result TEXT,
+
+            -- DKIM signing domain from header.d
+            dkim_domain TEXT,
+
+            -- Header risk score and label
+            risk_score INTEGER,
+            risk_level TEXT,
+
+            -- Human-readable explanation
+            risk_reason TEXT,
+
+            -- Auto timestamp for scan record
+            scanned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            -- Connect this header record to predictions table
+            FOREIGN KEY (prediction_id) REFERENCES predictions(id)
+        )
+    """)
+
     # Save changes and close connection
     conn.commit()
     conn.close()
@@ -207,6 +254,108 @@ def save_attachment_scan(
     conn.commit()
     conn.close()
 
+
+# Save email header spoofing analysis result
+# ---------------------------------------------------
+def save_header_scan(
+    prediction_id,
+    message_id,
+    from_domain,
+    return_path_domain,
+    reply_to_domain,
+    spf_result,
+    dkim_result,
+    dmarc_result,
+    compauth_result,
+    dkim_domain,
+    risk_score,
+    risk_level,
+    risk_reason
+):
+    """
+    Save one email header spoofing analysis result into the header_scans table.
+    """
+
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO header_scans (
+            prediction_id,
+            message_id,
+            from_domain,
+            return_path_domain,
+            reply_to_domain,
+            spf_result,
+            dkim_result,
+            dmarc_result,
+            compauth_result,
+            dkim_domain,
+            risk_score,
+            risk_level,
+            risk_reason
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        prediction_id,
+        message_id,
+        from_domain,
+        return_path_domain,
+        reply_to_domain,
+        spf_result,
+        dkim_result,
+        dmarc_result,
+        compauth_result,
+        dkim_domain,
+        risk_score,
+        risk_level,
+        risk_reason
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+
+# Retrieve email header scan for one prediction
+# ---------------------------------------------------
+def get_header_scan(prediction_id):
+    """
+    Retrieve the saved email header spoofing analysis result
+    for a specific prediction.
+    """
+
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            id,
+            prediction_id,
+            message_id,
+            from_domain,
+            return_path_domain,
+            reply_to_domain,
+            spf_result,
+            dkim_result,
+            dmarc_result,
+            compauth_result,
+            dkim_domain,
+            risk_score,
+            risk_level,
+            risk_reason,
+            scanned_at
+        FROM header_scans
+        WHERE prediction_id = ?
+        ORDER BY scanned_at DESC
+        LIMIT 1
+    """, (prediction_id,))
+
+    row = cursor.fetchone()
+
+    conn.close()
+
+    return row
 
 # ---------------------------------------------------
 # Run database initialization when file is executed

@@ -69,6 +69,39 @@
         a:hover {
             background-color: #2980b9;
         }
+
+        .header-risk-box {
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-left: 5px solid #3498db;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 20px;
+        }
+
+        .risk-high {
+            color: red;
+            font-weight: bold;
+        }
+
+        .risk-medium {
+            color: orange;
+            font-weight: bold;
+        }
+
+        .risk-low {
+            color: green;
+            font-weight: bold;
+        }
+
+        .risk-reason {
+            white-space: pre-wrap;
+            background-color: white;
+            border: 1px solid #ddd;
+            padding: 12px;
+            border-radius: 5px;
+            margin-top: 8px;
+        }
     </style>
 </head>
 
@@ -95,7 +128,7 @@
 
         <div class="detail-row">
             <span class="label">Email Body:</span>
-            <div class="email-body">{{ prediction[3] }}</div>
+            <div class="email-body">{{ formatted_body|safe }}</div>
         </div>
 
         <div class="detail-row">
@@ -118,6 +151,86 @@
         <div class="detail-row">
             <span class="label">Submitted Time:</span>
             {{ prediction[6] }}
+        </div>
+        
+        <div class="header-risk-box">
+            <h2>Email Header Spoofing Analysis</h2>
+
+            {% if header_scan %}
+
+                <div class="detail-row">
+                    <span class="label">Header Risk Level:</span>
+
+                    {% if header_scan[12]|lower == "high" %}
+                        <span class="risk-high">{{ header_scan[12] }}</span>
+                    {% elif header_scan[12]|lower == "medium" %}
+                        <span class="risk-medium">{{ header_scan[12] }}</span>
+                    {% else %}
+                        <span class="risk-low">{{ header_scan[12] }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="detail-row">
+                    <span class="label">Header Risk Score:</span>
+                    {{ header_scan[11] }}/100
+                </div>
+
+                <div class="detail-row">
+                    <span class="label">Visible From Domain:</span>
+                    {{ header_scan[3] or "Not found" }}
+                </div>
+
+                <div class="detail-row">
+                    <span class="label">Return-Path Domain:</span>
+                    {{ header_scan[4] or "Not found" }}
+                </div>
+
+                <div class="detail-row">
+                    <span class="label">Reply-To Domain:</span>
+                    {{ header_scan[5] or "Not found" }}
+                </div>
+
+                <div class="detail-row">
+                    <span class="label">SPF Result:</span>
+                    {{ header_scan[6] }}
+                </div>
+
+                <div class="detail-row">
+                    <span class="label">DKIM Result:</span>
+                    {{ header_scan[7] }}
+                </div>
+
+                <div class="detail-row">
+                    <span class="label">DMARC Result:</span>
+                    {{ header_scan[8] }}
+                </div>
+
+                <div class="detail-row">
+                    <span class="label">Microsoft Composite Authentication:</span>
+                    {{ header_scan[9] }}
+                </div>
+
+                <div class="detail-row">
+                    <span class="label">DKIM Signing Domain:</span>
+                    {{ header_scan[10] or "Not found" }}
+                </div>
+
+                <div class="detail-row">
+                    <span class="label">Header Risk Explanation:</span>
+                    <div class="risk-reason">{{ header_scan[13].replace(" | ", "\n") }}</div>
+                </div>
+
+                <div class="detail-row">
+                    <span class="label">Header Scan Time:</span>
+                    {{ header_scan[14] }}
+                </div>
+
+            {% else %}
+
+                <p>No header scan was saved for this prediction.</p>
+                <p>This usually means the email was entered manually instead of selected from Outlook.</p>
+
+            {% endif %}
         </div>
 
         {% if source == "emails" %}
