@@ -83,6 +83,58 @@ def init_db():
         )
     """)
 
+        # -------------------------------
+    # Create 'sandbox_scans' table
+    # -------------------------------
+    # Stores sandbox-based behavioral analysis results for suspicious attachments
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS sandbox_scans (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+            -- Links sandbox scan to related attachment scan record
+            attachment_scan_id INTEGER,
+
+            -- Sandbox provider information, for example Hybrid Analysis or ANY.RUN
+            sandbox_provider TEXT,
+
+            -- Task/report ID returned by the sandbox API
+            sandbox_task_id TEXT,
+
+            -- Current sandbox analysis status: submitted, running, completed, failed
+            sandbox_status TEXT,
+
+            -- Final sandbox verdict: malicious, suspicious, clean, unknown
+            sandbox_verdict TEXT,
+
+            -- Numeric score returned or calculated from sandbox result
+            threat_score INTEGER,
+
+            -- Human-readable behavior summary
+            behavior_summary TEXT,
+
+            -- Network indicators such as domains, IPs, or URLs contacted
+            network_indicators TEXT,
+
+            -- File/process indicators observed during sandbox execution
+            file_indicators TEXT,
+
+            -- Link to external sandbox report, if available
+            report_url TEXT,
+
+            -- Raw JSON/text response from sandbox API for debugging/audit
+            raw_result TEXT,
+
+            -- Timestamp when file was submitted to sandbox
+            submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+            -- Timestamp when sandbox report was completed/retrieved
+            completed_at TIMESTAMP,
+
+            -- Connect this sandbox record to attachment_scans table
+            FOREIGN KEY (attachment_scan_id) REFERENCES attachment_scans(id)
+        )
+    """)
+
     # -----------------------------
     # Create 'header_scans' table
     # -----------------------------
