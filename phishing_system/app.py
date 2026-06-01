@@ -2,6 +2,7 @@ import joblib
 import sqlite3
 import numpy as np
 import os
+import tempfile
 import msal
 import requests
 import re
@@ -11,7 +12,20 @@ from flask import Flask, render_template, request, redirect, session
 from functools import wraps
 from werkzeug.security import generate_password_hash, check_password_hash
 from scipy.sparse import hstack, csr_matrix
-from database import get_all_predictions, get_user_predictions, save_attachment_scan, save_header_scan, get_header_scan
+from database import (
+    get_all_predictions, 
+    get_user_predictions, 
+    save_attachment_scan, 
+    save_header_scan, 
+    get_header_scan, 
+    save_sandbox_scan, 
+    update_sandbox_scan_result
+)
+from sandbox_api import (
+    submit_file_to_hybrid_analysis,
+    get_hybrid_analysis_overview,
+    parse_hybrid_analysis_overview
+)
 from graph_attachments import get_email_attachments, download_attachment_bytes
 from attachment_analyzer import analyze_attachment_metadata, calculate_sha256
 from virustotal_checker import check_virustotal_hash
@@ -464,8 +478,9 @@ def predict():
                 result["risk_level"] = "Medium"
                 result["risk_reason"] += "; VirusTotal reported suspicious detections"
 
-            # Save the attachment scan result into SQLite.
-            save_attachment_scan(
+            # Save the attachment scan result into SQLite and get the new attachment scan ID.
+            # This ID will be used later to link sandbox analysis results to this attachment.
+            attachment_scan_id = save_attachment_scan(
                 prediction_id=prediction_id,
                 message_id=message_id,
                 filename=result.get("filename"),
@@ -477,6 +492,107 @@ def predict():
                 risk_reason=result.get("risk_reason"),
                 virustotal_result=virustotal_summary
             )
+
+            # Decide whether this attachment should be submitted to the sandbox.
+            # To reduce API usage, only medium/high risk attachments or dangerous file types are submitted.
+            dangerous_extensions = [
+                ".exe", ".js", ".vbs", ".scr", ".ps1", ".bat",
+                ".cmd", ".jar", ".docm", ".xlsm", ".pptm", ".iso",
+                ".img", ".lnk"
+            ]
+
+            extension = result.get("extension") or ""
+            risk_level = result.get("risk_level") or ""
+
+            should_submit_to_sandbox = (
+                risk_level in ["Medium", "High"]
+                or extension.lower() in dangerous_extensions
+            )
+
+                        # Submit suspicious attachments to Hybrid Analysis sandbox.
+            # The attachment bytes are written to a temporary file only for API upload.
+            # The temporary file is deleted after submission.
+            if should_submit_to_sandbox and file_bytes:
+                temp_file_path = None
+                sandbox_scan_id = None
+
+                try:
+                    filename = result.get("filename") or "attachment.bin"
+
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=extension) as temp_file:
+                        temp_file.write(file_bytes)
+                        temp_file_path = temp_file.name
+
+                    sandbox_submission = submit_file_to_hybrid_analysis(
+                        file_path=temp_file_path,
+                        filename=filename
+                    )
+
+                    if sandbox_submission["success"]:
+                        sandbox_task_id = (
+                            sandbox_submission["data"].get("job_id")
+                            or sandbox_submission["data"].get("id")
+                            or sandbox_submission["data"].get("sha256")
+                        )
+
+                        sandbox_scan_id = save_sandbox_scan(
+                            attachment_scan_id=attachment_scan_id,
+                            sandbox_provider="Hybrid Analysis",
+                            sandbox_task_id=sandbox_task_id,
+                            sandbox_status="submitted",
+                            raw_result=str(sandbox_submission["data"])
+                        )
+
+                        # Try to retrieve the overview/report using the SHA-256 hash.
+                        overview_result = get_hybrid_analysis_overview(sha256_hash)
+
+                        if overview_result["success"]:
+                            parsed_result = parse_hybrid_analysis_overview(
+                                overview_result["data"]
+                            )
+
+                            update_sandbox_scan_result(
+                                sandbox_scan_id=sandbox_scan_id,
+                                sandbox_status="completed",
+                                sandbox_verdict=parsed_result["sandbox_verdict"],
+                                threat_score=parsed_result["threat_score"],
+                                behavior_summary=parsed_result["behavior_summary"],
+                                network_indicators=parsed_result["network_indicators"],
+                                file_indicators=parsed_result["file_indicators"],
+                                report_url=parsed_result["report_url"],
+                                raw_result=parsed_result["raw_result"]
+                            )
+                        else:
+                            update_sandbox_scan_result(
+                                sandbox_scan_id=sandbox_scan_id,
+                                sandbox_status="report_pending",
+                                behavior_summary=overview_result["message"],
+                                raw_result=str(overview_result["data"])
+                            )
+
+                    else:
+                        save_sandbox_scan(
+                            attachment_scan_id=attachment_scan_id,
+                            sandbox_provider="Hybrid Analysis",
+                            sandbox_task_id=None,
+                            sandbox_status="submission_failed",
+                            behavior_summary=sandbox_submission["message"],
+                            raw_result=str(sandbox_submission["data"])
+                        )
+
+                except Exception as sandbox_error:
+                    save_sandbox_scan(
+                        attachment_scan_id=attachment_scan_id,
+                        sandbox_provider="Hybrid Analysis",
+                        sandbox_task_id=None,
+                        sandbox_status="error",
+                        behavior_summary=str(sandbox_error),
+                        raw_result=None
+                    )
+
+                finally:
+                    if temp_file_path and os.path.exists(temp_file_path):
+                        os.remove(temp_file_path)
 
     return redirect(f"/prediction/{prediction_id}?source={source}")
 

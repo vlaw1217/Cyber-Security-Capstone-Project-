@@ -307,9 +307,15 @@ def save_attachment_scan(
         virustotal_result
     ))
 
+    # Get the ID of the newly inserted attachment scan record.
+    # This ID will be used to link sandbox analysis results to this attachment.
+    attachment_scan_id = cursor.lastrowid
+
     # Save changes and close the connection.
     conn.commit()
     conn.close()
+
+    return attachment_scan_id
 
 
 def save_sandbox_scan(
