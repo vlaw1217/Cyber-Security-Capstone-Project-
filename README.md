@@ -20,11 +20,9 @@ The goal is to demonstrate an end-to-end phishing analysis workflow from user lo
 
 **Current status:** Phase 2 system development in progress.
 
-The project has moved from the Phase 1 machine learning proof-of-concept into the Phase 2 system implementation stage. The current system includes a Flask-based phishing detection web application with user authentication, role-based access control, prediction history storage, and an administrative dashboard.
+The system also includes an expanded email security analysis workflow. Outlook attachment metadata can now be retrieved through Microsoft Graph API and displayed on the Outlook emails page, including filename, MIME type, file size, attachment type, inline status, SHA-256 hash, and attachment risk level. The system performs rule-based attachment risk detection, checks hash reputation through VirusTotal, and saves attachment analysis results into the SQLite `attachment_scans` table.
 
-Recent Phase 2 work focused on improving system structure, strengthening access control, building dashboard features for administrator monitoring, and integrating Microsoft Graph API for Outlook email retrieval. Users can now connect an Outlook account through Microsoft OAuth, retrieve recent Outlook emails, display email content in the system, and submit selected Outlook emails to the phishing detection model.
-
-The system also includes an attachment analysis workflow. Outlook attachment metadata can now be retrieved through Microsoft Graph API and displayed on the Outlook emails page, including filename, MIME type, file size, attachment type, and inline status. The system also performs rule-based attachment risk detection, calculates SHA-256 hashes when attachment bytes are available, checks hash reputation through VirusTotal, and saves attachment analysis results into the SQLite `attachment_scans` table after an Outlook email is analyzed. Displaying saved attachment scan results on the Prediction Details page and admin dashboard remains planned as a later enhancement.
+In addition, the system now supports email header spoofing analysis and sandbox-based attachment analysis. Email headers are retrieved through Microsoft Graph API and analyzed for SPF, DKIM, DMARC, Return-Path, Reply-To, and DKIM domain alignment indicators. Suspicious attachments can also be submitted to Hybrid Analysis / Falcon Sandbox for behavioral analysis. Sandbox verdicts and behavior summaries are saved into the SQLite `sandbox_scans` table and displayed on the Prediction Details page.
 
 ---
 
@@ -159,14 +157,53 @@ Current implementation:
 - VirusTotal integration checks only the hash value and does not upload attachment files.
 - Attachment scan results are linked to the related prediction record through `prediction_id`.
 
+### 8. Email Header Spoofing Analysis
+
+Completed work:
+
+* Added email header spoofing analysis for Outlook emails
+* Retrieved Outlook internet message headers using Microsoft Graph API
+* Analyzed SPF, DKIM, DMARC, Return-Path, Reply-To, and Microsoft composite authentication results
+* Checked sender-domain alignment indicators such as visible From domain, Return-Path domain, Reply-To domain, and DKIM signing domain
+* Calculated a header risk score and header risk level
+* Saved header scan results into the SQLite `header_scans` table
+* Displayed header risk score, risk level, authentication results, and explanation on the Prediction Details page
+
+Current implementation:
+
+* Header analysis is performed only for Outlook emails retrieved through Microsoft Graph API.
+* The system analyzes authentication and domain-alignment indicators to help identify possible spoofing or sender impersonation.
+* Header scan results are linked to the related prediction record through `prediction_id`.
+
+### 9. Sandbox-Based Attachment Analysis
+
+Completed work:
+
+* Added Hybrid Analysis / Falcon Sandbox API configuration using environment variables
+* Created a `sandbox_api.py` helper module for sandbox API communication
+* Tested Hybrid Analysis API connection successfully
+* Added file submission support for suspicious attachments
+* Retrieved sandbox overview/report results using SHA-256 hash values
+* Parsed sandbox verdicts and behavior summaries into simplified result fields
+* Created a `sandbox_scans` SQLite table for sandbox result storage
+* Saved sandbox provider, status, verdict, behavior summary, raw result, and timestamps into SQLite
+* Linked sandbox scan results to attachment scan records through `attachment_scan_id`
+* Displayed Hybrid Analysis sandbox results on the Prediction Details page
+
+Current implementation:
+
+* Suspicious attachments are submitted to Hybrid Analysis only when the attachment has a medium/high risk level or a risky file extension.
+* The system writes attachment bytes to a temporary file only for API upload.
+* Temporary files are deleted after sandbox submission.
+* Sandbox results are stored in SQLite and displayed together with attachment metadata and risk results.
+* VirusTotal is kept as a hash reputation comparison/fallback, while Hybrid Analysis provides deeper sandbox-based behavioral analysis.
+
 Planned next work:
 
-- Create overall risk calculation logic that combines email prediction risk and attachment risk
-- Display saved attachment scan results on the Prediction Details page
-- Display attachment risk indicators in the admin dashboard
+- Create overall risk calculation logic that combines email prediction risk, header risk, attachment risk, and sandbox results
+- Display attachment and sandbox risk indicators in the admin dashboard
 - Improve presentation of high-risk attachment results for administrator review
-
-The attachment analytics component does not execute, open, or run attachment files. It focuses on safe static analysis using metadata, file type, file size, SHA-256 hash values, database storage, and optional reputation indicators.
+- Add optional refresh logic for sandbox reports that are still pending
 
 ---
 
@@ -187,12 +224,14 @@ By the end of Phase 2, the project is expected to include:
 - Admin activity log for accountability
 - Functional Microsoft Graph API integration for Outlook email retrieval
 - Outlook email retrieval and submission to the phishing detection model
-- Attachment metadata retrieval, rule-based risk detection, SHA-256 hashing, VirusTotal hash lookup, and SQLite storage
+- Attachment metadata retrieval, rule-based risk detection, SHA-256 hashing, VirusTotal hash lookup, Hybrid Analysis sandbox submission, sandbox verdict retrieval, and SQLite storage
 - Updated SQLite database structure
 - Clear GitHub README and setup documentation
 - Weekly progress evidence
 - Final presentation and demo materials
 - End-to-end workflow demonstration
+- Email header spoofing analysis using SPF, DKIM, DMARC, Return-Path, Reply-To, and DKIM domain alignment indicators
+- Prediction Details page showing email body, model result, header spoofing analysis, attachment analysis, and sandbox analysis results
 
 ---
 
@@ -209,9 +248,10 @@ By the end of Phase 2, the project is expected to include:
 | Database | SQLite |
 | Frontend | HTML, CSS, Bootstrap or basic styling |
 | Email Integration | Microsoft Graph API, Microsoft Entra ID, OAuth 2.0 |
-| Attachment Analysis | Python hashing libraries, rule-based metadata checks, SHA-256 hashing, VirusTotal hash lookup |
+| Attachment Analysis | Python hashing libraries, rule-based metadata checks, SHA-256 hashing, VirusTotal hash lookup, Hybrid Analysis / Falcon Sandbox API |
 | Version Control | Git, GitHub |
 | Development Environment | VS Code |
+| Email Header Analysis | Microsoft Graph internet message headers, SPF, DKIM, DMARC, Return-Path, Reply-To, DKIM domain alignment |
 
 ---
 
@@ -233,6 +273,9 @@ By the end of Phase 2, the project is expected to include:
 - View rule-based attachment risk level and risk reason
 - View SHA-256 hash values for supported Outlook file attachments
 - View VirusTotal hash reputation results when available
+- View email header spoofing analysis results on the Prediction Details page
+- View attachment scan results on the Prediction Details page
+- View Hybrid Analysis sandbox verdict and behavior summary for submitted attachments
 
 ### Admin Features
 
@@ -257,19 +300,30 @@ By the end of Phase 2, the project is expected to include:
 - Blocked-user login prevention
 - Admin self-protection against blocking, deleting, or demoting own account
 - UTC-style timestamps for audit consistency
+- Email header spoofing analysis using authentication and domain-alignment indicators
+- Sandbox-based behavioral analysis for suspicious attachments
+- Temporary attachment file handling for sandbox upload, with deletion after submission
 
-### Email Integration and Attachment Analysis Features
+### Email Integration, Header Analysis, and Attachment Analysis Features
 
 - Microsoft OAuth-based Outlook connection
 - Microsoft Graph API email retrieval
 - Outlook email display inside the Flask application
+- Outlook internet message header retrieval through Microsoft Graph API
+- Email header spoofing analysis using SPF, DKIM, DMARC, Return-Path, Reply-To, and DKIM domain alignment
+- Header risk score, risk level, and explanation display on the Prediction Details page
 - Attachment metadata retrieval through Microsoft Graph API
 - Attachment filename, MIME type, size, attachment type, and inline status display
 - Rule-based attachment risk detection using extension, MIME type, and file size
 - SHA-256 hash calculation for supported file attachments
 - VirusTotal hash reputation lookup using SHA-256 values
+- Hybrid Analysis / Falcon Sandbox API integration for suspicious attachments
+- Sandbox verdict and behavior summary retrieval
 - SQLite storage of attachment scan results in the `attachment_scans` table
-- Safe attachment handling approach that does not execute or open files
+- SQLite storage of email header scan results in the `header_scans` table
+- SQLite storage of sandbox results in the `sandbox_scans` table
+- Prediction Details page display for header analysis, attachment analysis, and sandbox analysis results
+- Safe attachment handling approach that does not manually open or execute files
 
 ---
 
@@ -282,6 +336,8 @@ Cyber-Security-Capstone-Project/
 ├── database.py
 ├── graph_attachments.py
 ├── attachment_analyzer.py
+├── sandbox_api.py
+├── header_analyzer.py
 ├── virustotal_checker.py
 ├── requirements.txt
 ├── README.md
@@ -303,4 +359,5 @@ Cyber-Security-Capstone-Project/
 
 > Note: `app.db` is used locally for users, prediction history, blocked account status, admin activity logs, and attachment scan result testing. It is ignored by Git and should not be pushed to GitHub.
 
-> Note: `.env` stores local API credentials such as Microsoft Graph and VirusTotal API keys. It must not be pushed to GitHub.
+> Note: `.env` stores local API credentials such as Microsoft Graph, VirusTotal, and Hybrid Analysis API keys. It must not be pushed to GitHub.
+
