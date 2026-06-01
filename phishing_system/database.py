@@ -545,6 +545,55 @@ def get_header_scan(prediction_id):
 
     return row
 
+
+# ---------------------------------------------------
+# Retrieve attachment scans with sandbox results
+# ---------------------------------------------------
+def get_attachment_scans_with_sandbox(prediction_id):
+    """
+    Retrieve attachment scan results and related sandbox analysis results
+    for a specific prediction.
+    """
+
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT
+            attachment_scans.id,
+            attachment_scans.filename,
+            attachment_scans.extension,
+            attachment_scans.mime_type,
+            attachment_scans.size_bytes,
+            attachment_scans.sha256_hash,
+            attachment_scans.risk_level,
+            attachment_scans.risk_reason,
+            attachment_scans.virustotal_result,
+            attachment_scans.scanned_at,
+
+            sandbox_scans.sandbox_provider,
+            sandbox_scans.sandbox_status,
+            sandbox_scans.sandbox_verdict,
+            sandbox_scans.threat_score,
+            sandbox_scans.behavior_summary,
+            sandbox_scans.report_url,
+            sandbox_scans.completed_at
+
+        FROM attachment_scans
+        LEFT JOIN sandbox_scans
+            ON attachment_scans.id = sandbox_scans.attachment_scan_id
+
+        WHERE attachment_scans.prediction_id = ?
+        ORDER BY attachment_scans.scanned_at DESC
+    """, (prediction_id,))
+
+    rows = cursor.fetchall()
+
+    conn.close()
+
+    return rows
+
+
 # ---------------------------------------------------
 # Run database initialization when file is executed
 # ---------------------------------------------------

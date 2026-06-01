@@ -233,6 +233,112 @@
             {% endif %}
         </div>
 
+        <div class="header-risk-box">
+            <h2>Attachment and Sandbox Analysis</h2>
+
+            {% if attachment_scans %}
+                {% for scan in attachment_scans %}
+                    <div class="detail-row">
+                        <span class="label">Filename:</span>
+                        {{ scan[1] }}
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="label">Extension:</span>
+                        {{ scan[2] }}
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="label">MIME Type:</span>
+                        {{ scan[3] }}
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="label">Size:</span>
+                        {{ scan[4] }} bytes
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="label">SHA-256:</span>
+                        {{ scan[5] }}
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="label">Attachment Risk Level:</span>
+
+                        {% if scan[6]|lower == "high" %}
+                            <span class="risk-high">{{ scan[6] }}</span>
+                        {% elif scan[6]|lower == "medium" %}
+                            <span class="risk-medium">{{ scan[6] }}</span>
+                        {% else %}
+                            <span class="risk-low">{{ scan[6] }}</span>
+                        {% endif %}
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="label">Attachment Risk Reason:</span>
+                        <div class="risk-reason">{{ scan[7] }}</div>
+                    </div>
+
+                    <div class="detail-row">
+                        <span class="label">VirusTotal Result:</span>
+                        {{ scan[8] }}
+                    </div>
+
+                    <hr>
+
+                    <h3>Hybrid Analysis Sandbox Result</h3>
+
+                    {% if scan[10] %}
+                        <div class="detail-row">
+                            <span class="label">Sandbox Provider:</span>
+                            {{ scan[10] }}
+                        </div>
+
+                        <div class="detail-row">
+                            <span class="label">Sandbox Status:</span>
+                            {{ scan[11] }}
+                        </div>
+
+                        <div class="detail-row">
+                            <span class="label">Sandbox Verdict:</span>
+                            {{ scan[12] }}
+                        </div>
+
+                        <div class="detail-row">
+                            <span class="label">Threat Score:</span>
+                            {{ scan[13] or "Not available" }}
+                        </div>
+
+                        <div class="detail-row">
+                            <span class="label">Behavior Summary:</span>
+                            <div class="risk-reason">{{ scan[14] }}</div>
+                        </div>
+
+                        {% if scan[15] %}
+                            <div class="detail-row">
+                                <span class="label">Report URL:</span>
+                                <a href="{{ scan[15] }}" target="_blank">View Sandbox Report</a>
+                            </div>
+                        {% endif %}
+
+                        <div class="detail-row">
+                            <span class="label">Completed At:</span>
+                            {{ scan[16] or "Not completed yet" }}
+                        </div>
+
+                    {% else %}
+                        <p>No sandbox analysis was submitted for this attachment.</p>
+                        <p>This may be because the attachment was low risk or unsupported for sandbox submission.</p>
+                    {% endif %}
+
+                    <hr>
+                {% endfor %}
+            {% else %}
+                <p>No attachment analysis results found for this prediction.</p>
+            {% endif %}
+        </div>
+
         {% if source == "emails" %}
             <a href="/emails">Back to Emails</a>
         {% else %}

@@ -19,7 +19,8 @@ from database import (
     save_header_scan, 
     get_header_scan, 
     save_sandbox_scan, 
-    update_sandbox_scan_result
+    update_sandbox_scan_result,
+    get_attachment_scans_with_sandbox
 )
 from sandbox_api import (
     submit_file_to_hybrid_analysis,
@@ -1331,6 +1332,7 @@ def prediction_detail(prediction_id):
     prediction = cursor.fetchone()
     conn.close()
     header_scan = get_header_scan(prediction_id)
+    attachment_scans = get_attachment_scans_with_sandbox(prediction_id)
 
     if prediction is None:
         return """
@@ -1348,6 +1350,7 @@ def prediction_detail(prediction_id):
         prediction=prediction,
         formatted_body=formatted_body,
         header_scan=header_scan,
+        attachment_scans=attachment_scans,
         source=source
     )
 
