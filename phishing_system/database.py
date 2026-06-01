@@ -8,6 +8,7 @@ def init_db():
     conn = sqlite3.connect("app.db")
     cursor = conn.cursor()
 
+
     # -----------------------------
     # Create 'users' table
     # -----------------------------
@@ -20,6 +21,7 @@ def init_db():
             role TEXT DEFAULT 'user'                -- User role: user or admin 
         )
     """)
+
 
     # -----------------------------
     # Create 'predictions' table
@@ -36,6 +38,7 @@ def init_db():
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP  -- Auto timestamp
         )
     """)
+
 
     # -----------------------------
     # Create 'attachment_scans' table
@@ -82,6 +85,7 @@ def init_db():
             FOREIGN KEY (prediction_id) REFERENCES predictions(id)
         )
     """)
+
 
         # -------------------------------
     # Create 'sandbox_scans' table
@@ -134,6 +138,7 @@ def init_db():
             FOREIGN KEY (attachment_scan_id) REFERENCES attachment_scans(id)
         )
     """)
+
 
     # -----------------------------
     # Create 'header_scans' table
@@ -307,6 +312,131 @@ def save_attachment_scan(
     conn.close()
 
 
+def save_sandbox_scan(
+    attachment_scan_id,
+    sandbox_provider,
+    sandbox_task_id,
+    sandbox_status="submitted",
+    sandbox_verdict=None,
+    threat_score=None,
+    behavior_summary=None,
+    network_indicators=None,
+    file_indicators=None,
+    report_url=None,
+    raw_result=None
+):
+    """
+    Save a new sandbox scan record after submitting an attachment to the sandbox.
+    Returns the new sandbox scan ID.
+    """
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO sandbox_scans (
+            attachment_scan_id,
+            sandbox_provider,
+            sandbox_task_id,
+            sandbox_status,
+            sandbox_verdict,
+            threat_score,
+            behavior_summary,
+            network_indicators,
+            file_indicators,
+            report_url,
+            raw_result
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        attachment_scan_id,
+        sandbox_provider,
+        sandbox_task_id,
+        sandbox_status,
+        sandbox_verdict,
+        threat_score,
+        behavior_summary,
+        network_indicators,
+        file_indicators,
+        report_url,
+        raw_result
+    ))
+
+    sandbox_scan_id = cursor.lastrowid
+
+    conn.commit()
+    conn.close()
+
+    return sandbox_scan_id
+
+def get_sandbox_scan_by_attachment(attachment_scan_id):
+    """
+    Get the latest sandbox scan linked to one attachment scan.
+    """
+    conn = sqlite3.connect("app.db")
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        SELECT *
+        FROM sandbox_scans
+        WHERE attachment_scan_id = ?
+        ORDER BY id DESC
+        LIMIT 1
+    """, (attachment_scan_id,))
+
+    sandbox_scan = cursor.fetchone()
+
+    conn.close()
+
+    return sandbox_scan
+
+def update_sandbox_scan_result(
+    sandbox_scan_id,
+    sandbox_status,
+    sandbox_verdict=None,
+    threat_score=None,
+    behavior_summary=None,
+    network_indicators=None,
+    file_indicators=None,
+    report_url=None,
+    raw_result=None
+):
+    """
+    Update sandbox scan after retrieving the final sandbox report.
+    """
+    conn = sqlite3.connect("app.db")
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE sandbox_scans
+        SET
+            sandbox_status = ?,
+            sandbox_verdict = ?,
+            threat_score = ?,
+            behavior_summary = ?,
+            network_indicators = ?,
+            file_indicators = ?,
+            report_url = ?,
+            raw_result = ?,
+            completed_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+    """, (
+        sandbox_status,
+        sandbox_verdict,
+        threat_score,
+        behavior_summary,
+        network_indicators,
+        file_indicators,
+        report_url,
+        raw_result,
+        sandbox_scan_id
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+#----------------------------------------------------
 # Save email header spoofing analysis result
 # ---------------------------------------------------
 def save_header_scan(
@@ -368,7 +498,7 @@ def save_header_scan(
     conn.close()
 
 
-
+# ---------------------------------------------------
 # Retrieve email header scan for one prediction
 # ---------------------------------------------------
 def get_header_scan(prediction_id):
