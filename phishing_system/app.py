@@ -48,7 +48,7 @@ TENANT_ID = os.getenv("TENANT_ID", "common")
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 REDIRECT_URI = os.getenv("REDIRECT_URI")
 
-SCOPES = ["User.Read", "Mail.Read"]
+SCOPES = ["User.Read", "Mail.ReadWrite"]
 
 # ---------------------------
 # BUILD MSAL APPLICATION
@@ -64,6 +64,39 @@ def build_msal_app():
         authority=AUTHORITY,
         client_credential=CLIENT_SECRET
     )
+
+
+# ---------------------------
+# MOVE OUTLOOK EMAIL
+# ---------------------------
+# Moves an Outlook email to another folder using Microsoft Graph.
+# Common destination folders:
+# - deleteditems
+# - junkemail
+def move_outlook_email(graph_token, message_id, destination_folder):
+    if not graph_token or not message_id or not destination_folder:
+        return False, "Missing Graph token, message ID, or destination folder."
+
+    headers = {
+        "Authorization": "Bearer " + graph_token,
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "destinationId": destination_folder
+    }
+
+    response = requests.post(
+        f"https://graph.microsoft.com/v1.0/me/messages/{message_id}/move",
+        headers=headers,
+        json=payload
+    )
+
+    if response.status_code == 201:
+        return True, f"Email moved to {destination_folder}."
+
+    return False, f"Graph API error {response.status_code}: {response.text[:500]}"
+
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -599,6 +632,63 @@ def predict():
 
 
 # ---------------------------
+# MOVE EMAIL TO DELETED ITEMS
+# ---------------------------
+@app.route("/email/delete", methods=["POST"])
+def delete_outlook_email():
+    if "user_id" not in session:
+        return redirect("/")
+
+    if "graph_token" not in session:
+        return redirect("/connect_outlook")
+
+    message_id = request.form.get("message_id")
+
+    success, message = move_outlook_email(
+        graph_token=session["graph_token"],
+        message_id=message_id,
+        destination_folder="deleteditems"
+    )
+
+    if not success:
+        return f"""
+        <h2 style="color:red;">Unable to delete email</h2>
+        <p>{message}</p>
+        <a href="/dashboard#prediction-history">Back to Dashboard</a>
+        """
+
+    return redirect("/emails")
+
+
+# ---------------------------
+# MOVE EMAIL TO JUNK EMAIL
+# ---------------------------
+@app.route("/email/junk", methods=["POST"])
+def junk_outlook_email():
+    if "user_id" not in session:
+        return redirect("/")
+
+    if "graph_token" not in session:
+        return redirect("/connect_outlook")
+
+    message_id = request.form.get("message_id")
+
+    success, message = move_outlook_email(
+        graph_token=session["graph_token"],
+        message_id=message_id,
+        destination_folder="junkemail"
+    )
+
+    if not success:
+        return f"""
+        <h2 style="color:red;">Unable to move email to junk</h2>
+        <p>{message}</p>
+        <a href="/dashboard#prediction-history">Back to Dashboard</a>
+        """
+
+    return redirect("/emails")
+
+# ---------------------------
 # USER REGISTRATION
 # ---------------------------
 @app.route("/register", methods=["GET", "POST"])
@@ -939,8 +1029,8 @@ def emails():
     # Request recent emails from Microsoft Graph
     # Include id and hasAttachments because they are needed for attachment metadata retrieval.
     response = requests.get(
-        "https://graph.microsoft.com/v1.0/me/messages?$top=10&$select=id,subject,bodyPreview,body,from,receivedDateTime,hasAttachments",
-        headers=headers
+    "https://graph.microsoft.com/v1.0/me/mailFolders/inbox/messages?$top=10&$select=id,subject,bodyPreview,body,from,receivedDateTime,hasAttachments",
+    headers=headers
     )
     print("Graph email response status:", response.status_code)
     print("Graph email response:", response.text[:1000])    

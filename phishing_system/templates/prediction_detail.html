@@ -233,6 +233,35 @@
             {% endif %}
         </div>
 
+        {% if header_scan and header_scan[2] %}
+            <div class="header-risk-box">
+                <h2>Email Actions</h2>
+
+                <p>
+                    After reviewing the prediction and header analysis, you can move this Outlook email
+                    to Junk Email or Deleted Items.
+                </p>
+
+                <form action="/email/junk" method="POST" style="display:inline;">
+                    <input type="hidden" name="message_id" value="{{ header_scan[2] }}">
+                    <button type="submit"
+                            onclick="return confirm('Move this email to Junk Email?');"
+                            style="background-color:#f39c12; color:white; padding:10px 16px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
+                        Move to Junk
+                    </button>
+                </form>
+
+                <form action="/email/delete" method="POST" style="display:inline; margin-left:10px;">
+                    <input type="hidden" name="message_id" value="{{ header_scan[2] }}">
+                    <button type="submit"
+                            onclick="return confirm('Move this email to Deleted Items?');"
+                            style="background-color:#e74c3c; color:white; padding:10px 16px; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">
+                        Delete Email
+                    </button>
+                </form>
+            </div>
+        {% endif %}
+        
         <div class="header-risk-box">
             <h2>Attachment and Sandbox Analysis</h2>
 
