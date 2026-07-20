@@ -87,6 +87,37 @@
         * {
             box-sizing: border-box;
         }
+
+        .password-field {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .password-field input {
+            width: 100%;
+            padding-right: 50px;
+            box-sizing: border-box;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 18px;
+            color: #555;
+            padding: 0;
+            margin: 0;
+        }
+
+        .toggle-password:hover {
+            color: #000;
+        }
+        
     </style>
 </head>
 
@@ -104,8 +135,13 @@
             Username:<br>
             <input type="text" name="username" placeholder="Enter your username" required>
 
-            Password:<br>
-            <input type="password" name="password" placeholder="Enter your password" required>
+            <label>Password:</label>
+            <div class="password-field">
+                <input type="password" id="login_password" name="password" placeholder="Enter your password" required>
+                <button type="button" class="toggle-password" onclick="togglePassword('login_password', this)">
+                    👁
+                </button>
+            </div>
 
             <input type="submit" value="Login">
         </form>
@@ -114,6 +150,18 @@
             Don't have an account? <a href="/register">Register</a>
         </p>
     </div>
+<script>
+    function togglePassword(inputId, buttonElement) {
+        const input = document.getElementById(inputId);
 
+        if (input.type === "password") {
+            input.type = "text";
+            buttonElement.textContent = "🙈";
+        } else {
+            input.type = "password";
+            buttonElement.textContent = "👁";
+        }
+    }
+</script>
 </body>
 </html>

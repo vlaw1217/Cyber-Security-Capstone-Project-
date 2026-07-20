@@ -87,6 +87,37 @@
         .link-text {
             text-align: center;
         }
+
+        .password-field {
+            position: relative;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .password-field input {
+            width: 100%;
+            padding-right: 50px;
+            box-sizing: border-box;
+        }
+
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            font-size: 18px;
+            color: #555;
+            padding: 0;
+            margin: 0;
+        }
+
+        .toggle-password:hover {
+            color: #000;
+        }
+
     </style>
 </head>
 
@@ -106,11 +137,21 @@
             Username:<br>
             <input type="text" name="username" placeholder="Choose a username" required>
 
-            Password:<br>
-            <input type="password" name="password" placeholder="Create a password" required>
+            <label>Password:</label>
+            <div class="password-field">
+                <input type="password" id="password" name="password" placeholder="Create a password" required>
+                <button type="button" class="toggle-password" onclick="togglePassword('password', this)">
+                    👁
+                </button>
+            </div>
 
-            Re-enter Password:<br>
-            <input type="password" name="confirm_password" placeholder="Re-enter your password" required>
+            <label>Re-enter Password:</label>
+            <div class="password-field">
+                <input type="password" id="confirm_password" name="confirm_password" placeholder="Re-enter your password" required>
+                <button type="button" class="toggle-password" onclick="togglePassword('confirm_password', this)">
+                    👁
+                </button>
+            </div>
 
             <input type="submit" value="Register">
         </form>
@@ -119,6 +160,21 @@
             Already have an account? <a href="/">Login</a>
         </p>
     </div>
+
+<script>
+    function togglePassword(inputId, buttonElement) {
+        const input = document.getElementById(inputId);
+
+        if (input.type === "password") {
+            input.type = "text";
+            buttonElement.textContent = "🙈";
+        } else {
+            input.type = "password";
+            buttonElement.textContent = "👁";
+        }
+    }
+</script>
+
 
 </body>
 </html>
