@@ -276,6 +276,7 @@ By the end of Phase 2, the project is expected to include:
 - View email header spoofing analysis results on the Prediction Details page
 - View attachment scan results on the Prediction Details page
 - View Hybrid Analysis sandbox verdict and behavior summary for submitted attachments
+- Show/hide password option on login and registration pages
 
 ### Admin Features
 
@@ -304,6 +305,7 @@ By the end of Phase 2, the project is expected to include:
 - Sandbox-based behavioral analysis for suspicious attachments
 - Temporary attachment file handling for sandbox upload, with deletion after submission
 - Password policy enforcement requiring minimum length, uppercase letter, lowercase letter, number, and special character
+- Password visibility toggle on login and registration forms for better user usability
 
 ### Email Integration, Header Analysis, and Attachment Analysis Features
 
