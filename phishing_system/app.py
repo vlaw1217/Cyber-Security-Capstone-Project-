@@ -101,8 +101,12 @@ def move_outlook_email(graph_token, message_id, destination_folder):
 # Initialize Flask application
 app = Flask(__name__)
 
-# Secret key used for session management (NOTE: replace in production)
-app.secret_key = "secret123"
+# Secret key used for session management 
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "dev-secret-key")
+
+# Session cookie settings for local Microsoft OAuth testing
+app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
+app.config["SESSION_COOKIE_SECURE"] = False
 
 # Load trained ML model and TF-IDF vectorizer
 model = joblib.load("phishing_model_v1.pkl")
