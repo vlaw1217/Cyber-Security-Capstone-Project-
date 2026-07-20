@@ -689,6 +689,39 @@ def junk_outlook_email():
     return redirect("/emails")
 
 # ---------------------------
+# PASSWORD POLICY VALIDATION
+# ---------------------------
+def validate_password_policy(password):
+    """
+    Validate password strength for new user registration.
+
+    Password requirements:
+    - At least 8 characters
+    - At least one uppercase letter
+    - At least one lowercase letter
+    - At least one number
+    - At least one special character
+    """
+
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters long."
+
+    if not re.search(r"[A-Z]", password):
+        return False, "Password must include at least one uppercase letter."
+
+    if not re.search(r"[a-z]", password):
+        return False, "Password must include at least one lowercase letter."
+
+    if not re.search(r"\d", password):
+        return False, "Password must include at least one number."
+
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>_\-+=\[\]\\;/`~]", password):
+        return False, "Password must include at least one special character."
+
+    return True, "Password meets the security requirements."
+
+
+# ---------------------------
 # USER REGISTRATION
 # ---------------------------
 @app.route("/register", methods=["GET", "POST"])
@@ -706,6 +739,17 @@ def register():
             return """
             <h2 style="color:red;">Passwords do not match</h2>
             <p>Please re-enter your password carefully.</p>
+            <a href="/register">Try Again</a>
+            """
+        
+        # Check password strength before creating the account.
+        is_valid_password, password_message = validate_password_policy(password)
+
+        if not is_valid_password:
+            return f"""
+            <h2 style="color:red;">Weak Password</h2>
+            <p>{password_message}</p>
+            <p>Password must be at least 8 characters and include uppercase, lowercase, number, and special character.</p>
             <a href="/register">Try Again</a>
             """
         
