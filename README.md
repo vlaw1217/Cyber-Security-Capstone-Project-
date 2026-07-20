@@ -303,6 +303,7 @@ By the end of Phase 2, the project is expected to include:
 - Email header spoofing analysis using authentication and domain-alignment indicators
 - Sandbox-based behavioral analysis for suspicious attachments
 - Temporary attachment file handling for sandbox upload, with deletion after submission
+- Password policy enforcement requiring minimum length, uppercase letter, lowercase letter, number, and special character
 
 ### Email Integration, Header Analysis, and Attachment Analysis Features
 
