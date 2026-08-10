@@ -255,6 +255,24 @@ By the end of Phase 2, the project is expected to include:
 
 ---
 
+## Setup and Run
+
+1. Clone or download the project repository and open the project folder.
+2. Create and activate a Python virtual environment.
+3. Install the required Python dependencies:
+
+   `pip install -r requirements.txt`
+
+4. Create a .env file and configure the required API credentials for Microsoft Graph and Hybrid Analysis.
+5. Initialize the SQLite database if required by the application.
+6. Start the Flask application:
+
+   `python app.py`
+   
+7. Open the local Flask address displayed in the terminal and register or log in to access the system. 
+
+> Note: The `.env` file and local `app.db` database contain local configuration or application data and should not be committed to GitHub.
+
 ## Current Implemented Features
 
 ### User Features
